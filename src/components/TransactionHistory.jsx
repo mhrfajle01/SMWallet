@@ -1,44 +1,116 @@
 import React, { useState, useMemo } from 'react';
-import { Card, Form, InputGroup, Button, Badge } from 'react-bootstrap';
+import { Card, Form, InputGroup, Button, Badge, Row, Col } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
-import { FaSearch, FaFilter, FaArrowDown, FaArrowUp, FaExchangeAlt, FaUtensils, FaShoppingCart, FaTrash } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaArrowDown, FaArrowUp, FaExchangeAlt, FaUtensils, FaShoppingCart, FaTrash, FaHistory, FaEdit } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
+import EditTransactionModal from './EditTransactionModal';
 
 const TransactionHistory = () => {
-  const { meals, purchases, incomes, goalDeposits, transfers, goals, deleteMeal, deletePurchase, deleteIncome, deleteTransfer, deleteGoalDeposit } = useApp();
+  const { 
+    meals = [], 
+    purchases = [], 
+    incomes = [], 
+    goalDeposits = [], 
+    transfers = [], 
+    goals = [], 
+    deleteMeal, 
+    deletePurchase, 
+    deleteIncome, 
+    deleteTransfer, 
+    deleteGoalDeposit 
+  } = useApp();
+
   const [filterType, setFilterType] = useState('all'); 
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('desc');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   const allTransactions = useMemo(() => {
-    const combined = [
-      ...meals.map(m => ({ ...m, type: 'expense', category: 'Meal', icon: FaUtensils, label: m.item, rawType: 'meal' })),
-      ...purchases.map(p => ({ ...p, type: 'expense', category: p.category, icon: FaShoppingCart, label: p.item, rawType: 'purchase' })),
-      ...incomes.map(i => ({ ...i, type: 'income', category: 'Income', icon: FaArrowDown, label: i.source, rawType: 'income' })),
-      ...(transfers || []).map(t => ({ ...t, type: 'transfer', category: 'Transfer', icon: FaExchangeAlt, label: `${t.sourceName} ➔ ${t.destName}`, rawType: 'transfer' })),
-      ...goalDeposits.map(g => {
-        const goalName = g.goalName || goals.find(goal => goal.id === g.goalId)?.name || 'Deleted Goal';
-        return { ...g, type: 'transfer', category: 'Savings', icon: FaExchangeAlt, label: `Deposit to ${goalName}`, rawType: 'goal_deposit' };
-      })
-    ];
+    try {
+      const combined = [
+        ...meals.map(m => ({ ...m, type: 'expense', category: 'Meal', icon: FaUtensils, label: m.item || 'Unnamed Meal', rawType: 'meal' })),
+        ...purchases.map(p => ({ ...p, type: 'expense', category: p.category || 'Other', icon: FaShoppingCart, label: p.item || 'Unnamed Purchase', rawType: 'purchase' })),
+        ...incomes.map(i => ({ ...i, type: 'income', category: 'Income', icon: FaArrowDown, label: i.source || 'Income', rawType: 'income' })),
+        ...transfers.map(t => ({ ...t, type: 'transfer', category: 'Transfer', icon: FaExchangeAlt, label: `${t.sourceName || 'Wallet'} ➔ ${t.destName || 'Wallet'}`, rawType: 'transfer' })),
+        ...goalDeposits.map(g => {
+          const goalName = g.goalName || goals.find(goal => goal.id === g.goalId)?.name || 'Savings Goal';
+          return { ...g, type: 'transfer', category: 'Savings', icon: FaExchangeAlt, label: `Deposit to ${goalName}`, rawType: 'goal_deposit' };
+        })
+      ];
 
-    return combined.sort((a, b) => {
-      const dateA = new Date(a.date || a.createdAt?.toDate());
-      const dateB = new Date(b.date || b.createdAt?.toDate());
-      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-    });
-  }, [meals, purchases, incomes, goalDeposits, transfers, goals, sortOrder]);
+      return combined.sort((a, b) => {
+        const getTimestamp = (t) => {
+          if (t.date) {
+            const d = new Date(t.date);
+            return isNaN(d.getTime()) ? 0 : d.getTime();
+          }
+          if (t.createdAt?.toDate) return t.createdAt.toDate().getTime();
+          if (t.createdAt?.seconds) return t.createdAt.seconds * 1000;
+          if (t.createdAt instanceof Date) return t.createdAt.getTime();
+          return 0;
+        };
+        return getTimestamp(b) - getTimestamp(a);
+      });
+    } catch (e) {
+      console.error("Error combining transactions:", e);
+      return [];
+    }
+  }, [meals, purchases, incomes, goalDeposits, transfers, goals]);
 
   const filteredTransactions = useMemo(() => {
     return allTransactions.filter(t => {
-      const matchesType = filterType === 'all' || t.type === filterType || (filterType === 'expense' && (t.type === 'expense')); 
-      const matchesSearch = t.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            t.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const label = (t.label || '').toLowerCase();
+      const category = (t.category || '').toLowerCase();
+      const search = searchTerm.toLowerCase();
+      const matchesType = filterType === 'all' || t.type === filterType; 
+      const matchesSearch = label.includes(search) || category.includes(search);
       return matchesType && matchesSearch;
     });
   }, [allTransactions, filterType, searchTerm]);
+
+  const groupedTransactions = useMemo(() => {
+    const groups = {};
+    filteredTransactions.forEach(t => {
+      let dateKey = 'Unknown Date';
+      try {
+        if (t.date) {
+          dateKey = t.date;
+        } else if (t.createdAt?.toDate) {
+          dateKey = t.createdAt.toDate().toISOString().split('T')[0];
+        } else if (t.createdAt?.seconds) {
+          dateKey = new Date(t.createdAt.seconds * 1000).toISOString().split('T')[0];
+        } else if (t.createdAt instanceof Date) {
+          dateKey = t.createdAt.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        console.error("Date parsing error:", e);
+      }
+      
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(t);
+    });
+
+    return Object.keys(groups).sort((a, b) => {
+      const dateA = new Date(a).getTime() || 0;
+      const dateB = new Date(b).getTime() || 0;
+      return dateB - dateA;
+    }).reduce((acc, key) => {
+      acc[key] = groups[key];
+      return acc;
+    }, {});
+  }, [filteredTransactions]);
+
+  const stats = useMemo(() => {
+    let cashIn = 0;
+    let cashOut = 0;
+    filteredTransactions.forEach(t => {
+      const amount = Number(t.amount) || 0;
+      if (t.type === 'income') cashIn += amount;
+      if (t.type === 'expense') cashOut += amount;
+    });
+    return { cashIn, cashOut, net: cashIn - cashOut };
+  }, [filteredTransactions]);
 
   const handleDelete = (transaction) => {
     setConfirmDelete(transaction);
@@ -46,9 +118,7 @@ const TransactionHistory = () => {
 
   const confirmDeleteAction = async () => {
     if (!confirmDelete) return;
-    
     const { id, rawType, walletId, amount, sourceId, destId, goalId } = confirmDelete;
-
     try {
       switch (rawType) {
         case 'meal': await deleteMeal(id); break;
@@ -59,9 +129,7 @@ const TransactionHistory = () => {
       }
     } catch (error) {
       console.error("Failed to delete transaction:", error);
-      alert("Failed to delete transaction. Please try again.");
     }
-    
     setConfirmDelete(null);
   };
 
@@ -69,121 +137,186 @@ const TransactionHistory = () => {
     return new Intl.NumberFormat('en-BD', {
       style: 'currency',
       currency: 'BDT',
-    }).format(amount);
+      maximumFractionDigits: 0
+    }).format(Number(amount) || 0);
   };
 
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'income': return 'success';
-      case 'expense': return 'danger';
-      case 'transfer': return 'primary';
-      default: return 'secondary';
+  const formatDateLabel = (dateStr) => {
+    if (!dateStr || dateStr === 'Unknown Date') return 'Unknown Date';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+
+      if (date.toDateString() === today.toDateString()) return 'Today';
+      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      
+      return date.toLocaleDateString('en-GB', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch (e) {
+      return dateStr;
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="pb-5"
-    >
+    <div className="pb-5">
+      {/* Search and Filter */}
       <Card className="custom-card border-0 shadow-sm mb-4">
-        <Card.Body className="p-4">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mb-4">
-            <h4 className="fw-bold mb-0">Transaction History</h4>
+        <Card.Body className="p-3">
+          <div className="d-flex flex-column flex-md-row gap-3">
+            <InputGroup className="shadow-none bg-light rounded-3 overflow-hidden border-0">
+              <InputGroup.Text className="bg-transparent border-0 px-3">
+                <FaSearch className="text-muted" />
+              </InputGroup.Text>
+              <Form.Control 
+                placeholder="Search transactions..." 
+                className="bg-transparent border-0 py-2 shadow-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </InputGroup>
             
-            <div className="d-flex gap-2 w-100 w-md-auto">
-              <InputGroup className="shadow-sm">
-                <InputGroup.Text className="bg-white border-end-0">
-                  <FaSearch className="text-muted" />
-                </InputGroup.Text>
-                <Form.Control 
-                  placeholder="Search transactions..." 
-                  className="border-start-0"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </InputGroup>
-              
-              <Form.Select 
-                value={filterType} 
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-auto shadow-sm"
-                style={{ minWidth: '120px' }}
-              >
-                <option value="all">All Types</option>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-                <option value="transfer">Transfer</option>
-              </Form.Select>
-            </div>
-          </div>
-
-          <div className="table-responsive">
-            <table className="table table-hover align-middle">
-              <thead className="bg-light">
-                <tr>
-                  <th className="border-0 text-secondary small py-3">Transaction</th>
-                  <th className="border-0 text-secondary small py-3">Date</th>
-                  <th className="border-0 text-secondary small py-3">Category</th>
-                  <th className="border-0 text-secondary small py-3 text-end">Amount</th>
-                  <th className="border-0 text-secondary small py-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((t, idx) => (
-                  <tr key={t.id || idx}>
-                    <td className="py-3">
-                      <div className="d-flex align-items-center">
-                        <div className={`rounded-circle p-2 bg-${getTypeColor(t.type)} bg-opacity-10 text-${getTypeColor(t.type)} me-3`}>
-                          <t.icon />
-                        </div>
-                        <span className="fw-medium">{t.label}</span>
-                      </div>
-                    </td>
-                    <td className="text-muted small">{t.date}</td>
-                    <td>
-                      <Badge bg="light" text="dark" className="border">
-                        {t.category}
-                      </Badge>
-                    </td>
-                    <td className={`text-end fw-bold text-${getTypeColor(t.type)}`}>
-                      {t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}
-                      {formatCurrency(t.amount)}
-                    </td>
-                    <td className="text-center">
-                      <Button 
-                        variant="light" 
-                        className="text-danger p-1 rounded-circle" 
-                        size="sm"
-                        onClick={() => handleDelete(t)}
-                      >
-                        <FaTrash size={12} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredTransactions.length === 0 && (
-                  <tr>
-                    <td colSpan="5" className="text-center py-5 text-muted">
-                      No transactions found matching your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <Form.Select 
+              value={filterType} 
+              onChange={(e) => setFilterType(e.target.value)}
+              className="w-auto border-0 fw-bold text-primary shadow-none bg-primary bg-opacity-10 rounded-3"
+              style={{ minWidth: '140px' }}
+            >
+              <option value="all">All Types</option>
+              <option value="income">Cash In</option>
+              <option value="expense">Cash Out</option>
+              <option value="transfer">Transfers</option>
+            </Form.Select>
           </div>
         </Card.Body>
       </Card>
 
-      <ConfirmModal 
-        show={!!confirmDelete}
-        onHide={() => setConfirmDelete(null)}
-        onConfirm={confirmDeleteAction}
-        title="Delete Transaction"
-        message={`Are you sure you want to delete this ${confirmDelete?.type} record? This will reverse the balance changes.`}
-      />
-    </motion.div>
+      {/* Summary Header */}
+      <Row className="g-3 mb-4">
+        <Col xs={6} md={4}>
+          <div className="p-3 rounded-4 bg-success bg-opacity-10 text-success border border-success border-opacity-10 text-center">
+            <div className="small fw-bold text-uppercase opacity-75 mb-1">Total In</div>
+            <div className="fw-bold fs-5">{formatCurrency(stats.cashIn)}</div>
+          </div>
+        </Col>
+        <Col xs={6} md={4}>
+          <div className="p-3 rounded-4 bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10 text-center">
+            <div className="small fw-bold text-uppercase opacity-75 mb-1">Total Out</div>
+            <div className="fw-bold fs-5">{formatCurrency(stats.cashOut)}</div>
+          </div>
+        </Col>
+        <Col xs={12} md={4}>
+          <div className={`p-3 rounded-4 border ${stats.net >= 0 ? 'bg-primary bg-opacity-10 text-primary border-primary' : 'bg-warning bg-opacity-10 text-warning border-warning'} border-opacity-10 text-center`}>
+            <div className="small fw-bold text-uppercase opacity-75 mb-1">Filtered Net</div>
+            <div className="fw-bold fs-5">{formatCurrency(stats.net)}</div>
+          </div>
+        </Col>
+      </Row>
+
+      {/* Grouped Transaction List */}
+      {Object.keys(groupedTransactions).length > 0 ? (
+        Object.keys(groupedTransactions).map(date => (
+          <div key={date} className="mb-4">
+            <div className="d-flex align-items-center mb-3">
+              <div className="fw-bold text-muted small text-uppercase tracking-wider">{formatDateLabel(date)}</div>
+              <div className="flex-grow-1 ms-3 border-top opacity-10"></div>
+            </div>
+            
+            {groupedTransactions[date].map((t, idx) => (
+              <motion.div
+                key={t.id || `tx-${date}-${idx}`}
+                whileHover={{ x: 5 }}
+                className="mb-2"
+              >
+                <Card className="custom-card border-0 shadow-sm overflow-hidden">
+                  <Card.Body className="p-3">
+                    <div className="d-flex align-items-center">
+                      <div className={`rounded-circle p-2 me-3 d-flex align-items-center justify-content-center bg-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'} bg-opacity-10 text-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'}`} style={{ width: '45px', height: '45px' }}>
+                        {t.icon ? <t.icon size={20} /> : <FaExchangeAlt size={20} />}
+                      </div>
+
+                      <div className="flex-grow-1 overflow-hidden">
+                        <div className="d-flex justify-content-between align-items-start">
+                          <div className="overflow-hidden">
+                            <div className="fw-bold text-truncate">{t.label}</div>
+                            <div className="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                              <Badge bg="light" text="secondary" className="fw-normal border border-secondary border-opacity-10 px-2 py-1" style={{ fontSize: '0.65rem' }}>
+                                {t.category || 'Other'}
+                              </Badge>
+                              {t.walletName && (
+                                <Badge bg="primary" className="bg-opacity-10 text-primary fw-normal px-2 py-1" style={{ fontSize: '0.65rem' }}>
+                                  {t.walletName}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="text-end ms-2" style={{ minWidth: '100px' }}>
+                            <div className={`fw-bold ${t.type === 'income' ? 'text-success' : t.type === 'expense' ? 'text-danger' : 'text-primary'}`}>
+                              {t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}
+                              {formatCurrency(t.amount)}
+                            </div>
+                            <div className="d-flex justify-content-end gap-2 mt-1">
+                              <Button 
+                                variant="light" 
+                                className="text-primary p-0 opacity-50" 
+                                onClick={() => setEditingTransaction(t)}
+                              >
+                                <FaEdit size={12} />
+                              </Button>
+                              <Button 
+                                variant="link" 
+                                className="text-danger p-0 opacity-50" 
+                                onClick={() => handleDelete(t)}
+                              >
+                                <FaTrash size={12} />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        ))
+      ) : (
+        <div className="text-center py-5">
+          <div className="text-muted mb-3 opacity-25">
+            <FaHistory size={60} />
+          </div>
+          <h5 className="text-muted">No transactions found</h5>
+          <p className="small text-muted">Try adjusting your search or filters.</p>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal 
+          show={!!confirmDelete}
+          onHide={() => setConfirmDelete(null)}
+          onConfirm={confirmDeleteAction}
+          title="Delete Transaction"
+          message={`Are you sure you want to delete this record? This will reverse the balance changes.`}
+        />
+      )}
+
+      {/* Unified Edit Modal */}
+      {editingTransaction && (
+        <EditTransactionModal 
+          show={true} 
+          onHide={() => setEditingTransaction(null)} 
+          transaction={editingTransaction} 
+        />
+      )}
+    </div>
   );
 };
 

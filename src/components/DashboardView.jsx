@@ -33,8 +33,8 @@ const DashboardView = () => {
       }
     }
 
-    const totalMeals = filteredMeals.reduce((acc, curr) => acc + Number(curr.amount), 0);
-    const totalPurchases = filteredPurchases.reduce((acc, curr) => acc + Number(curr.amount), 0);
+    const totalMeals = filteredMeals.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const totalPurchases = filteredPurchases.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     return {
       meals: filteredMeals,

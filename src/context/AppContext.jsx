@@ -439,6 +439,28 @@ export const AppProvider = ({ children }) => {
     await deleteDoc(doc(db, 'budgets', id));
   };
 
+  const getSmartRecents = () => {
+    const frequencyMap = {};
+    
+    // Combine all history
+    const allHistory = [
+      ...meals.map(m => ({ label: m.item, amount: m.amount, type: 'meal', cat: 'Food', mType: m.mealType })),
+      ...purchases.map(p => ({ label: p.item, amount: p.amount, type: 'purchase', cat: p.category }))
+    ];
+
+    allHistory.forEach(item => {
+      const key = `${item.label}_${item.amount}`;
+      if (!frequencyMap[key]) {
+        frequencyMap[key] = { ...item, count: 0 };
+      }
+      frequencyMap[key].count++;
+    });
+
+    return Object.values(frequencyMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  };
+
   return (
     <AppContext.Provider value={{
       wallets: getCalculatedWallets(),
@@ -452,6 +474,7 @@ export const AppProvider = ({ children }) => {
       categories,
       globalStats,
       loading,
+      getSmartRecents,
       addCategory,
       deleteCategory,
       addWallet,

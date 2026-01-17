@@ -9,6 +9,8 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 
+import PageLoader from '../components/PageLoader';
+
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
@@ -44,7 +46,13 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, signup, login, logout, loginWithGoogle }}>
-      {!loading && children}
+      {loading ? (
+        <div className="vh-100 d-flex justify-content-center align-items-center" style={{ background: '#0f172a' }}>
+          <PageLoader />
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };

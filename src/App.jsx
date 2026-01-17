@@ -19,6 +19,27 @@ import PageLoader from './components/PageLoader';
 import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true }; }
+  componentDidCatch(error, errorInfo) { console.error("Panel Error:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-5 text-center">
+          <h5 className="text-danger mb-3">Something went wrong in this section.</h5>
+          <Button variant="outline-primary" onClick={() => window.location.reload()}>Reload App</Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Mobile Header Component
 const MobileHeader = () => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -116,29 +137,31 @@ function AppContent() {
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  {activeTab === 'wallets' && (
-                    <WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />
-                  )}
-                  
-                  {activeTab === 'goals' && (
-                    <GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />
-                  )}
+                  <ErrorBoundary>
+                    {activeTab === 'wallets' && (
+                      <WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />
+                    )}
+                    
+                    {activeTab === 'goals' && (
+                      <GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />
+                    )}
 
-                  {activeTab === 'budget' && (
-                    <BudgetPlanner />
-                  )}
-                  
-                  {activeTab === 'reports' && (
-                    <ReportPanel />
-                  )}
+                    {activeTab === 'budget' && (
+                      <BudgetPlanner />
+                    )}
+                    
+                    {activeTab === 'reports' && (
+                      <ReportPanel />
+                    )}
 
-                  {activeTab === 'settings' && (
-                    <SettingsPanel />
-                  )}
-                  
-                  {activeTab === 'history' && (
-                    <DashboardView />
-                  )}
+                    {activeTab === 'settings' && (
+                      <SettingsPanel />
+                    )}
+                    
+                    {activeTab === 'history' && (
+                      <DashboardView />
+                    )}
+                  </ErrorBoundary>
                 </motion.div>
               )}
             </AnimatePresence>
