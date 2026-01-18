@@ -34,7 +34,9 @@ const IncomeForm = () => {
     setImpactData({
       walletName: selectedWallet?.name || 'Wallet',
       amount: amountNum,
-      newBalance: (selectedWallet?.remaining || 0) + amountNum,
+      newBalance: selectedWallet?.type === 'liability'
+        ? (selectedWallet?.remaining || 0) - amountNum
+        : (selectedWallet?.remaining || 0) + amountNum,
       isIncome: true
     });
 
@@ -102,7 +104,9 @@ const IncomeForm = () => {
           >
             <option value="">Select Wallet...</option>
             {wallets.map(w => (
-              <option key={w.id} value={w.id}>{w.name} (Avail: {w.remaining})</option>
+              <option key={w.id} value={w.id}>
+                {w.name} ({w.type === 'liability' ? `Debt: ${w.remaining}` : `Avail: ${w.remaining}`})
+              </option>
             ))}
           </Form.Select>
         </Form.Group>

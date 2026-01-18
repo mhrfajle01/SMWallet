@@ -48,7 +48,9 @@ const TransferModal = ({ show, onHide }) => {
               >
                 <option value="">Select Source Wallet...</option>
                 {wallets.map(w => (
-                  <option key={w.id} value={w.id}>{w.name} ({w.remaining})</option>
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.type === 'liability' ? `Debt: ${w.remaining}` : `Avail: ${w.remaining}`})
+                  </option>
                 ))}
               </Form.Select>
             </Form.Group>
@@ -62,7 +64,9 @@ const TransferModal = ({ show, onHide }) => {
               >
                 <option value="">Select Destination Wallet...</option>
                 {wallets.map(w => (
-                  <option key={w.id} value={w.id}>{w.name} ({w.remaining})</option>
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.type === 'liability' ? `Debt: ${w.remaining}` : `Avail: ${w.remaining}`})
+                  </option>
                 ))}
               </Form.Select>
             </Form.Group>

@@ -192,13 +192,27 @@ export const AppProvider = ({ children }) => {
       setLoading(false);
       return;
     }
-    const totalBalance = wallets.reduce((acc, curr) => acc + Number(curr.balance), 0);
+    
+    // Total assets (Normal wallets)
+    const assets = wallets
+      .filter(w => w.type !== 'liability')
+      .reduce((acc, curr) => acc + Number(curr.balance), 0);
+    
+    // Total liability "limit" or starting balances (usually 0 for postpaid)
+    const liabilityBalance = wallets
+      .filter(w => w.type === 'liability')
+      .reduce((acc, curr) => acc + Number(curr.balance), 0);
+
     const totalSpent = meals.reduce((acc, curr) => acc + Number(curr.amount), 0) + 
                        purchases.reduce((acc, curr) => acc + Number(curr.amount), 0);
+    
+    // Net balance is total initial balances across all wallets minus everything spent
+    const totalInitialBalance = assets + liabilityBalance;
+
     setGlobalStats({
-      totalBalance, 
+      totalBalance: totalInitialBalance, 
       totalSpent,
-      totalRemaining: totalBalance - totalSpent 
+      totalRemaining: totalInitialBalance - totalSpent 
     });
     setLoading(false);
   }, [wallets, meals, purchases, incomes, user]);
@@ -207,11 +221,15 @@ export const AppProvider = ({ children }) => {
     const walletExpenses = {};
     meals.forEach(m => walletExpenses[m.walletId] = (walletExpenses[m.walletId] || 0) + Number(m.amount));
     purchases.forEach(p => walletExpenses[p.walletId] = (walletExpenses[p.walletId] || 0) + Number(p.amount));
-    return wallets.map(w => ({
-      ...w,
-      spent: walletExpenses[w.id] || 0,
-      remaining: Number(w.balance) - (walletExpenses[w.id] || 0)
-    }));
+    return wallets.map(w => {
+      const spent = walletExpenses[w.id] || 0;
+      const balance = Number(w.balance);
+      return {
+        ...w,
+        spent,
+        remaining: w.type === 'liability' ? (spent - balance) : (balance - spent)
+      };
+    });
   };
 
   // Actions
@@ -235,11 +253,12 @@ export const AppProvider = ({ children }) => {
     await deleteDoc(doc(db, 'budgets', budgetId));
   };
 
-  const addWallet = async (name, balance) => {
+  const addWallet = async (name, balance, type = 'asset') => {
     await addDoc(collection(db, 'wallets'), {
       uid: user.uid,
       name,
       balance: Number(balance),
+      type,
       createdAt: serverTimestamp()
     });
   };

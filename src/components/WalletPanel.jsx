@@ -178,7 +178,9 @@ const WalletPanel = ({ onOpenCreateModal }) => {
                   
                   <div className="mb-3">
                     <div className="d-flex justify-content-between mb-2">
-                      <span className="text-secondary small fw-medium">Balance</span>
+                      <span className="text-secondary small fw-medium">
+                        {wallet.type === 'liability' ? 'Initial / Limit' : 'Balance'}
+                      </span>
                       <span className="fw-bold">{formatCurrency(wallet.balance)}</span>
                     </div>
                     <div className="d-flex justify-content-between mb-2">
@@ -188,23 +190,35 @@ const WalletPanel = ({ onOpenCreateModal }) => {
                   </div>
                   
                   <div className="border-top pt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-secondary fw-bold small">AVAILABLE</span>
+                    <span className="text-secondary fw-bold small">
+                      {wallet.type === 'liability' ? 'CURRENT DEBT' : 'AVAILABLE'}
+                    </span>
                     <Badge 
-                      bg={wallet.remaining < 0 ? 'danger' : 'success'} 
+                      bg={wallet.type === 'liability' ? (wallet.remaining > 0 ? 'warning' : 'success') : (wallet.remaining < 0 ? 'danger' : 'success')} 
                       className="px-3 py-2 rounded-pill fw-medium"
                       style={{ fontSize: '0.9rem' }}
                     >
                       {formatCurrency(wallet.remaining)}
                     </Badge>
                   </div>
+                  {wallet.type === 'liability' && wallet.remaining > 0 && (
+                    <Button 
+                      variant="outline-primary" 
+                      size="sm" 
+                      className="w-100 mt-3 rounded-pill"
+                      onClick={() => setShowTransferModal(true)}
+                    >
+                      <FaExchangeAlt className="me-2" /> Settle Bill
+                    </Button>
+                  )}
                 </Card.Body>
                 {/* Progress Bar Visual */}
                 <div className="position-absolute bottom-0 start-0 w-100" style={{ height: '4px', background: '#f0f0f0' }}>
                    <div 
                       style={{ 
-                        width: `${Math.min((wallet.spent / wallet.balance) * 100, 100)}%`, 
+                        width: `${Math.min((wallet.spent / (wallet.balance || 1)) * 100, 100)}%`, 
                         height: '100%', 
-                        background: wallet.remaining < 0 ? 'var(--danger-gradient)' : 'var(--primary-gradient)' 
+                        background: wallet.type === 'liability' ? 'var(--warning-gradient, #f59e0b)' : (wallet.remaining < 0 ? 'var(--danger-gradient)' : 'var(--primary-gradient)') 
                       }} 
                    />
                 </div>
