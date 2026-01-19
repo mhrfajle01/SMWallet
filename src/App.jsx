@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Navbar, Button } from 'react-bootstrap';
 import { AppProvider, useApp } from './context/AppContext';
+import { PlannerProvider } from './context/PlannerContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import WalletPanel from './components/WalletPanel';
@@ -8,6 +9,7 @@ import GoalsPanel from './components/GoalsPanel';
 import BudgetPlanner from './components/BudgetPlanner';
 import ReportPanel from './components/ReportPanel';
 import SettingsPanel from './components/SettingsPanel';
+import PlannerView from './components/PlannerView';
 import CreateWalletModal from './components/CreateWalletModal';
 import AddGoalModal from './components/AddGoalModal';
 import DashboardView from './components/DashboardView';
@@ -16,7 +18,7 @@ import Sidebar from './components/Sidebar';
 import AuthView from './components/AuthView';
 import AddTransactionModal from './components/AddTransactionModal';
 import PageLoader from './components/PageLoader';
-import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt } from 'react-icons/fa';
+import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaCalendarCheck } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Error Boundary Component
@@ -41,17 +43,17 @@ class ErrorBoundary extends React.Component {
 }
 
 // Mobile Header Component
-const MobileHeader = () => {
+const MobileHeader = ({ viewMode, onViewModeChange }) => {
   const { isDarkMode, toggleTheme } = useTheme();
   const { logout } = useAuth();
   return (
     <Navbar className="bg-white border-bottom shadow-sm d-lg-none sticky-top" style={{ height: 'var(--header-height)', background: 'var(--nav-bg)', borderColor: 'var(--border-color)' }}>
       <Container>
-        <Navbar.Brand className="d-flex align-items-center fw-bold text-primary">
+        <Navbar.Brand className="d-flex align-items-center fw-bold text-primary" onClick={() => onViewModeChange('wallet')} style={{ cursor: 'pointer' }}>
           <div className="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
-            <FaWallet size={20} />
+            {viewMode === 'wallet' ? <FaWallet size={20} /> : <FaCalendarCheck size={20} />}
           </div>
-          SMWallet
+          {viewMode === 'wallet' ? 'SMWallet' : 'SMPlanner'}
         </Navbar.Brand>
         <div className="d-flex align-items-center gap-3">
           <Button variant="link" onClick={toggleTheme} className="text-secondary p-0">
@@ -69,6 +71,7 @@ const MobileHeader = () => {
 function AppContent() {
   const { loading } = useApp();
   const { user } = useAuth();
+  const [viewMode, setViewMode] = useState('wallet'); // 'wallet' or 'planner'
   const [activeTab, setActiveTab] = useState('wallets');
   const [isPreparing, setIsPreparing] = useState(false);
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
@@ -93,6 +96,14 @@ function AppContent() {
     setTimeout(() => setIsPreparing(false), 400); 
   };
 
+  const handleViewModeChange = (mode) => {
+    if (mode === viewMode) return;
+    setIsPreparing(true);
+    setViewMode(mode);
+    setActiveTab(mode === 'wallet' ? 'wallets' : 'planner-home');
+    setTimeout(() => setIsPreparing(false), 400);
+  };
+
   if (loading) {
     return (
       <div className="vh-100 d-flex justify-content-center align-items-center" style={{ background: 'var(--bg-color)' }}>
@@ -108,13 +119,15 @@ function AppContent() {
         <Sidebar 
           activeTab={activeTab} 
           onTabChange={handleTabChange}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
           onAddTransaction={() => setShowAddTransactionModal(true)}
         />
       )}
 
       {/* Main Content Area */}
       <div className="main-content d-flex flex-column p-0">
-        {!isDesktop && <MobileHeader />}
+        {!isDesktop && <MobileHeader viewMode={viewMode} onViewModeChange={handleViewModeChange} />}
         
         <div className="flex-grow-1 overflow-auto" style={{ padding: isDesktop ? '2rem' : '1rem', paddingBottom: isDesktop ? '2rem' : '100px' }}>
           <Container fluid={isDesktop} className={isDesktop ? "px-4" : "p-0"}>
@@ -161,6 +174,18 @@ function AppContent() {
                     {activeTab === 'history' && (
                       <DashboardView />
                     )}
+
+                    {activeTab === 'planner-home' && (
+                      <PlannerView activeTab="home" />
+                    )}
+
+                    {activeTab === 'tasks' && (
+                      <PlannerView activeTab="tasks" />
+                    )}
+
+                    {activeTab === 'habits' && (
+                      <PlannerView activeTab="habits" />
+                    )}
                   </ErrorBoundary>
                 </motion.div>
               )}
@@ -170,7 +195,7 @@ function AppContent() {
       </div>
 
       {/* Mobile Floating Action Button */}
-      {!isDesktop && (
+      {!isDesktop && viewMode === 'wallet' && (
         <div className="fab-container">
           <motion.button 
             whileHover={{ scale: 1.1 }}
@@ -186,7 +211,12 @@ function AppContent() {
 
       {/* Mobile Bottom Navigation */}
       {!isDesktop && (
-        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+        <BottomNav 
+          activeTab={activeTab} 
+          onTabChange={handleTabChange} 
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+        />
       )}
 
       {/* Modals */}
@@ -213,7 +243,9 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <AppProvider>
-          <AppContent />
+          <PlannerProvider>
+            <AppContent />
+          </PlannerProvider>
         </AppProvider>
       </AuthProvider>
     </ThemeProvider>
