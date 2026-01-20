@@ -111,3 +111,47 @@ export const generatePDF = (globalStats, meals, purchases, goals) => {
     alert('Failed to generate PDF. Please check the console for errors.');
   }
 };
+
+// New function for filtered list export
+export const generateFilteredPDF = (transactions) => {
+  try {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.setTextColor(26, 115, 232);
+    doc.text('Transaction History Report', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    doc.text(`Total Records: ${transactions.length}`, 14, 33);
+
+    const tableData = transactions.map(t => [
+      t.date || '',
+      t.time || '-',
+      t.label || t.item || '',
+      t.category || '',
+      t.walletName || 'N/A',
+      t.type ? t.type.toUpperCase() : '',
+      `${t.amount} BDT`
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['Date', 'Time', 'Description', 'Category', 'Wallet', 'Type', 'Amount']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [55, 65, 81] }, // Dark gray header
+      alternateRowStyles: { fillColor: [243, 244, 246] },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        6: { fontStyle: 'bold', halign: 'right' }
+      }
+    });
+
+    doc.save(`Filtered_Transactions_${new Date().toISOString().slice(0, 10)}.pdf`);
+  } catch (error) {
+    console.error('Filtered PDF Error:', error);
+    alert('Failed to generate PDF');
+  }
+};

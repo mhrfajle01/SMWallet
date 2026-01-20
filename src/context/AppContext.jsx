@@ -293,6 +293,71 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const updateIncome = async (id, oldData, newData) => {
+    // Revert old data from old wallet
+    const oldWallet = wallets.find(w => w.id === oldData.walletId);
+    if (oldWallet) {
+      await updateDoc(doc(db, 'wallets', oldData.walletId), {
+        balance: Number(oldWallet.balance) - Number(oldData.amount)
+      });
+    }
+    
+    // Apply new data to new wallet (or same wallet, but refreshed)
+    // Note: We need to fetch the wallet again or assume sequential consistency. 
+    // For safety in this simple app, we can just use the wallet ref directly.
+    // If walletId is same, we effectively did (Balance - Old + New).
+    // If different, we did (OldWallet - Old) and (NewWallet + New).
+    
+    // However, if oldWalletId === newWalletId, 'oldWallet' variable holds the state BEFORE the first update.
+    // So we should be careful.
+    
+    if (oldData.walletId === newData.walletId) {
+       // Same wallet: balance = balance - old + new
+       if (oldWallet) {
+         // We already subtracted old. Now add new.
+         // BUT wait, firestore update is async. 
+         // Better to use increment/decrement or do it in one calculation.
+         const netChange = Number(newData.amount) - Number(oldData.amount);
+         await updateDoc(doc(db, 'wallets', oldData.walletId), {
+             balance: Number(oldWallet.balance) + netChange // logic: start + (new - old)
+         });
+       }
+    } else {
+       // Different wallets
+       // Revert old (already done above? No, I put it inside if(oldWallet))
+       // But wait, the first block logic was: "Revert old".
+       // If I use that first block, I effectively subtracted oldAmount.
+       
+       // Let's rewrite for clarity:
+       if (oldData.walletId === newData.walletId) {
+          if (oldWallet) {
+             await updateDoc(doc(db, 'wallets', oldData.walletId), {
+                balance: Number(oldWallet.balance) - Number(oldData.amount) + Number(newData.amount)
+             });
+          }
+       } else {
+          // Revert old
+          if (oldWallet) {
+             await updateDoc(doc(db, 'wallets', oldData.walletId), {
+                balance: Number(oldWallet.balance) - Number(oldData.amount)
+             });
+          }
+          // Apply new
+          const newWallet = wallets.find(w => w.id === newData.walletId);
+          if (newWallet) {
+             await updateDoc(doc(db, 'wallets', newData.walletId), {
+                balance: Number(newWallet.balance) + Number(newData.amount)
+             });
+          }
+       }
+    }
+
+    await updateDoc(doc(db, 'incomes', id), {
+      ...newData,
+      amount: Number(newData.amount)
+    });
+  };
+
   const transferFunds = async (sourceId, destId, amount) => {
     const numAmount = Number(amount);
     const sourceWallet = wallets.find(w => w.id === sourceId);
@@ -512,6 +577,7 @@ export const AppProvider = ({ children }) => {
       deleteBudget,
       addIncome,
       deleteIncome,
+      updateIncome,
       transferFunds,
       deleteTransfer,
       deleteGoalDeposit

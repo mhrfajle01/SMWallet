@@ -1,55 +1,63 @@
 import React, { useState } from 'react';
 import { Form, Button } from 'react-bootstrap';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useApp } from '../context/AppContext';
 import StatusModal from './StatusModal';
+
+const schema = z.object({
+  date: z.string().min(1, "Date is required"),
+  category: z.string(),
+  item: z.string().min(1, "Item name is required"),
+  amount: z.coerce.number({ invalid_type_error: "Amount must be a number" }).positive("Amount must be positive"),
+  walletId: z.string().min(1, "Please select a wallet"),
+});
 
 const PurchaseForm = () => {
   const { wallets, addPurchase, categories } = useApp();
   const [status, setStatus] = useState({ show: false, message: '' });
-  
-  const today = new Date().toISOString().split('T')[0];
-  
-  const [formData, setFormData] = useState({
-    date: today,
-    category: categories[0]?.id || 'Other',
-    item: '',
-    amount: '',
-    walletId: ''
-  });
   const [impactData, setImpactData] = useState(null);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.walletId) {
-      setStatus({ show: true, type: 'error', message: 'Please select a wallet' });
-      return;
+  
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      category: categories[0]?.id || 'Other',
+      item: '',
+      amount: '',
+      walletId: ''
     }
+  });
 
-    const selectedWallet = wallets.find(w => w.id === formData.walletId);
-    const amountNum = Number(formData.amount);
+  const onSubmit = async (data) => {
+    const selectedWallet = wallets.find(w => w.id === data.walletId);
+    
+    // Auto-capture time
+    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     setImpactData({
       walletName: selectedWallet?.name || 'Wallet',
-      amount: amountNum,
+      amount: data.amount,
       newBalance: selectedWallet?.type === 'liability'
-        ? (selectedWallet?.remaining || 0) + amountNum
-        : (selectedWallet?.remaining || 0) - amountNum
+        ? (selectedWallet?.remaining || 0) + data.amount
+        : (selectedWallet?.remaining || 0) - data.amount
     });
 
     await addPurchase({
-      ...formData,
-      month: formData.date.substring(0, 7), // YYYY-MM
+      ...data,
+      time,
+      amount: data.amount.toString(),
+      month: data.date.substring(0, 7),
       walletName: selectedWallet ? selectedWallet.name : 'Unknown'
     });
 
-    setFormData({
-      ...formData,
-      item: '',
-      amount: ''
+    reset({
+        date: data.date,
+        category: data.category,
+        item: '',
+        amount: '',
+        walletId: data.walletId
     });
     
     setStatus({ show: true, type: 'success', message: 'Purchase added successfully!' });
@@ -57,25 +65,20 @@ const PurchaseForm = () => {
 
   return (
     <>
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit(onSubmit)}>
         <Form.Group className="mb-2">
           <Form.Label>Date</Form.Label>
           <Form.Control 
             type="date" 
-            name="date"
-            value={formData.date}
-            onChange={handleChange}
-            required
+            {...register("date")}
+            isInvalid={!!errors.date}
           />
+          <Form.Control.Feedback type="invalid">{errors.date?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Form.Group className="mb-2">
           <Form.Label>Category</Form.Label>
-          <Form.Select 
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-          >
+          <Form.Select {...register("category")}>
             {categories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.label}</option>
             ))}
@@ -87,11 +90,10 @@ const PurchaseForm = () => {
           <Form.Control 
             type="text" 
             placeholder="e.g. Milk, Notebook"
-            name="item"
-            value={formData.item}
-            onChange={handleChange}
-            required
+            {...register("item")}
+            isInvalid={!!errors.item}
           />
+          <Form.Control.Feedback type="invalid">{errors.item?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Form.Group className="mb-2">
@@ -99,20 +101,18 @@ const PurchaseForm = () => {
           <Form.Control 
             type="number" 
             placeholder="0.00"
-            name="amount"
-            value={formData.amount}
-            onChange={handleChange}
-            required
+            step="0.01"
+            {...register("amount")}
+            isInvalid={!!errors.amount}
           />
+          <Form.Control.Feedback type="invalid">{errors.amount?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Form.Group className="mb-3">
           <Form.Label>Wallet</Form.Label>
           <Form.Select 
-            name="walletId"
-            value={formData.walletId}
-            onChange={handleChange}
-            required
+            {...register("walletId")}
+            isInvalid={!!errors.walletId}
           >
             <option value="">Select Wallet...</option>
             {wallets.map(w => (
@@ -121,6 +121,7 @@ const PurchaseForm = () => {
               </option>
             ))}
           </Form.Select>
+          <Form.Control.Feedback type="invalid">{errors.walletId?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Button type="submit" className="w-100 btn-success">

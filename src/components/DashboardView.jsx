@@ -2,13 +2,15 @@ import React, { useState, useMemo } from 'react';
 import { Card, Row, Col, Form, Nav, Button } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
 import TransactionHistory from './TransactionHistory';
+import FinancialCalendar from './FinancialCalendar';
 import { motion } from 'framer-motion';
-import { FaFileDownload } from 'react-icons/fa';
+import { FaFileDownload, FaCalendarAlt, FaList } from 'react-icons/fa';
 import { generatePDF } from '../utils/pdfGenerator';
 
 const DashboardView = () => {
-  const { wallets, meals, purchases, goals, globalStats } = useApp();
+  const { wallets, meals, purchases, incomes, goals, globalStats } = useApp();
   const [viewMode, setViewMode] = useState('month'); // 'month' or 'wallet'
+  const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'calendar'
   
   // Month Selection State
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -120,17 +122,40 @@ const DashboardView = () => {
                 <h6 className="opacity-75 mb-1">TOTAL SPENT ({viewMode === 'month' ? selectedMonth : 'Selected Wallet'})</h6>
                 <h2 className="fw-bold mb-0">{formatCurrency(filteredData.totalSpent)}</h2>
              </div>
-             <div className="bg-white bg-opacity-25 p-3 rounded-circle">
-               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
-                 <path d="M8 1a2 2 0 0 1 2 2v2H6V3a2 2 0 0 1 2-2zm3 4V3a3 3 0 1 0-6 0v2H3.36a1.5 1.5 0 0 0-1.483 1.277L.85 13.13A2.5 2.5 0 0 0 3.322 16h9.355a2.5 2.5 0 0 0 2.473-2.87l-1.028-6.853A1.5 1.5 0 0 0 12.64 5H11zm-1 1v1.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V6h-2zm-3 0v1.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V6H7z"/>
-               </svg>
+             
+             {/* View Switcher: List vs Calendar */}
+             <div className="bg-white bg-opacity-25 p-1 rounded-pill d-flex">
+               <Button 
+                variant={displayMode === 'list' ? 'light' : 'transparent'} 
+                size="sm" 
+                className={`rounded-pill border-0 ${displayMode === 'list' ? 'text-primary shadow-sm' : 'text-white'}`}
+                onClick={() => setDisplayMode('list')}
+               >
+                 <FaList />
+               </Button>
+               <Button 
+                variant={displayMode === 'calendar' ? 'light' : 'transparent'} 
+                size="sm" 
+                className={`rounded-pill border-0 ${displayMode === 'calendar' ? 'text-primary shadow-sm' : 'text-white'}`}
+                onClick={() => setDisplayMode('calendar')}
+               >
+                 <FaCalendarAlt />
+               </Button>
              </div>
           </motion.div>
         </Col>
       </Row>
       
-      {/* Unified Transaction History */}
-      <TransactionHistory />
+      {/* Content Area */}
+      {displayMode === 'calendar' ? (
+        <FinancialCalendar 
+            meals={filteredData.meals} 
+            purchases={filteredData.purchases} 
+            incomes={incomes} // Pass all incomes, Calendar handles filtering by date internally or we can filter here
+        />
+      ) : (
+        <TransactionHistory />
+      )}
     </motion.div>
   );
 };

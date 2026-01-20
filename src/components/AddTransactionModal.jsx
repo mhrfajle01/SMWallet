@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal, Nav, Button, Form, InputGroup } from 'react-bootstrap';
+import { Modal, Nav, Button, Form, InputGroup, Badge } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import MealForm from './MealForm';
@@ -7,7 +7,7 @@ import PurchaseForm from './PurchaseForm';
 import IncomeForm from './IncomeForm';
 import { playSound } from '../utils/soundEffects';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaMagic, FaHistory, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaMagic, FaHistory, FaCheck, FaTimes, FaLightbulb } from 'react-icons/fa';
 
 const AddTransactionModal = ({ show, onHide }) => {
   const { wallets, addPurchase, addMeal, getSmartRecents, categories, meals, purchases } = useApp();
@@ -18,6 +18,9 @@ const AddTransactionModal = ({ show, onHide }) => {
   // Magic Bar State
   const [magicInput, setMagicInput] = useState('');
   const [parsed, setParsed] = useState({ amount: 0, item: '', valid: false });
+  
+  // Smart Context State
+  const [suggestion, setSuggestion] = useState(null);
 
   const smartRecents = useMemo(() => getSmartRecents(), [show, meals, purchases]);
 
@@ -33,6 +36,22 @@ const AddTransactionModal = ({ show, onHide }) => {
       setMagicInput('');
       setParsed({ amount: 0, item: '', valid: false });
       setActiveType('magic');
+
+      // --- Context-Aware Suggestions ---
+      const hour = new Date().getHours();
+      const day = new Date().getDate();
+
+      // 1. Time-Based Suggestion
+      if (hour >= 6 && hour < 11) setSuggestion({ type: 'meal', label: 'Breakfast', icon: '🍳' });
+      else if (hour >= 11 && hour < 15) setSuggestion({ type: 'meal', label: 'Lunch', icon: '🍔' });
+      else if (hour >= 18 && hour < 22) setSuggestion({ type: 'meal', label: 'Dinner', icon: '🍽️' });
+      else setSuggestion(null); // Clear if no strong time signal
+
+      // 2. Recurring Payment Logic (Mock: Rent 1st-5th)
+      if (day >= 1 && day <= 5) {
+        // Only suggest if not recently paid (would need more complex check, keeping simple)
+        setSuggestion({ type: 'purchase', label: 'Rent/Bills', icon: '🏠', autoFill: { item: 'Rent', category: 'Bills' } });
+      }
     }
   }, [show]);
 
@@ -63,17 +82,18 @@ const AddTransactionModal = ({ show, onHide }) => {
     if (wallets.length === 0) return alert("Create a wallet first!");
     const defaultWallet = wallets[0];
     const today = new Date().toISOString().split('T')[0];
+    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     try {
       if (temp.type === 'meal') {
         await addMeal({
-          date: today, mealType: temp.mType || 'Snack', item: temp.label,
+          date: today, time, mealType: temp.mType || 'Snack', item: temp.label,
           amount: temp.amount, walletId: defaultWallet.id, walletName: defaultWallet.name,
           month: today.substring(0, 7)
         });
       } else {
         await addPurchase({
-          date: today, category: temp.cat || 'Other', item: temp.label,
+          date: today, time, category: temp.cat || 'Other', item: temp.label,
           amount: temp.amount, walletId: defaultWallet.id, walletName: defaultWallet.name,
           month: today.substring(0, 7)
         });
@@ -90,6 +110,7 @@ const AddTransactionModal = ({ show, onHide }) => {
     if (wallets.length === 0) return alert("Create a wallet first!");
     const defaultWallet = wallets[0];
     const today = new Date().toISOString().split('T')[0];
+    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     // Auto-category matching based on recents
     const match = smartRecents.find(r => r.label.toLowerCase() === parsed.item.toLowerCase());
@@ -97,13 +118,21 @@ const AddTransactionModal = ({ show, onHide }) => {
 
     try {
       await addPurchase({
-        date: today, category, item: parsed.item,
+        date: today, time, category, item: parsed.item,
         amount: parsed.amount, walletId: defaultWallet.id,
         walletName: defaultWallet.name, month: today.substring(0, 7)
       });
       playSound('success');
       onHide();
     } catch (e) { console.error(e); }
+  };
+
+  const applySuggestion = () => {
+    if (suggestion) {
+       setActiveType(suggestion.type);
+       // In a fuller implementation, we would pre-fill the form inputs using Context or Props
+       // For now, we just switch the tab which is helpful enough
+    }
   };
 
   return (
@@ -132,6 +161,24 @@ const AddTransactionModal = ({ show, onHide }) => {
       </Modal.Header>
 
       <Modal.Body className="px-3 px-md-4 pb-4 pt-0">
+        {suggestion && activeType === 'magic' && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }} 
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3"
+          >
+            <div 
+              className="p-2 px-3 rounded-pill d-inline-flex align-items-center gap-2 bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25"
+              style={{ cursor: 'pointer' }}
+              onClick={applySuggestion}
+            >
+              <FaLightbulb />
+              <small className="fw-bold">It's time for {suggestion.label}?</small>
+              <span className="badge bg-primary rounded-circle">Go</span>
+            </div>
+          </motion.div>
+        )}
+
         {activeType === 'magic' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div className="mb-4">

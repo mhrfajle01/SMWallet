@@ -1,10 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Card, Form, InputGroup, Button, Badge, Row, Col } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
-import { FaSearch, FaFilter, FaArrowDown, FaArrowUp, FaExchangeAlt, FaUtensils, FaShoppingCart, FaTrash, FaHistory, FaEdit } from 'react-icons/fa';
+import { FaSearch, FaArrowDown, FaExchangeAlt, FaUtensils, FaShoppingCart, FaTrash, FaHistory, FaEdit, FaSortAmountDown, FaSortAmountUp, FaCalendarAlt, FaList, FaTable, FaFileDownload } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
 import EditTransactionModal from './EditTransactionModal';
+import SmartTable from './SmartTable';
+import { useTheme } from '../context/ThemeContext';
+import { generateFilteredPDF } from '../utils/pdfGenerator';
+import Papa from 'papaparse';
 
 const TransactionHistory = () => {
   const { 
@@ -14,6 +18,7 @@ const TransactionHistory = () => {
     goalDeposits = [], 
     transfers = [], 
     goals = [], 
+    categories = [],
     deleteMeal, 
     deletePurchase, 
     deleteIncome, 
@@ -21,7 +26,11 @@ const TransactionHistory = () => {
     deleteGoalDeposit 
   } = useApp();
 
+  const { isDarkMode } = useTheme();
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
   const [filterType, setFilterType] = useState('all'); 
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [sortOrder, setSortOrder] = useState('date-desc');
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
@@ -38,20 +47,7 @@ const TransactionHistory = () => {
           return { ...g, type: 'transfer', category: 'Savings', icon: FaExchangeAlt, label: `Deposit to ${goalName}`, rawType: 'goal_deposit' };
         })
       ];
-
-      return combined.sort((a, b) => {
-        const getTimestamp = (t) => {
-          if (t.date) {
-            const d = new Date(t.date);
-            return isNaN(d.getTime()) ? 0 : d.getTime();
-          }
-          if (t.createdAt?.toDate) return t.createdAt.toDate().getTime();
-          if (t.createdAt?.seconds) return t.createdAt.seconds * 1000;
-          if (t.createdAt instanceof Date) return t.createdAt.getTime();
-          return 0;
-        };
-        return getTimestamp(b) - getTimestamp(a);
-      });
+      return combined;
     } catch (e) {
       console.error("Error combining transactions:", e);
       return [];
@@ -59,47 +55,125 @@ const TransactionHistory = () => {
   }, [meals, purchases, incomes, goalDeposits, transfers, goals]);
 
   const filteredTransactions = useMemo(() => {
-    return allTransactions.filter(t => {
+    let result = allTransactions.filter(t => {
       const label = (t.label || '').toLowerCase();
       const category = (t.category || '').toLowerCase();
       const search = searchTerm.toLowerCase();
+      
       const matchesType = filterType === 'all' || t.type === filterType; 
-      const matchesSearch = label.includes(search) || category.includes(search);
-      return matchesType && matchesSearch;
-    });
-  }, [allTransactions, filterType, searchTerm]);
+      
+      let matchesCategory = true;
+      if (filterCategory !== 'all') {
+         if (filterCategory === 'Meal') matchesCategory = t.rawType === 'meal';
+         else if (filterCategory === 'Income') matchesCategory = t.rawType === 'income';
+         else if (filterCategory === 'Transfer') matchesCategory = t.type === 'transfer';
+         else matchesCategory = t.category === filterCategory;
+      }
 
+      const matchesSearch = label.includes(search) || category.includes(search);
+      return matchesType && matchesCategory && matchesSearch;
+    });
+
+    if (viewMode === 'list') {
+        result.sort((a, b) => {
+            const getTimestamp = (t) => {
+                if (t.date) {
+                    const d = new Date(t.date);
+                    return isNaN(d.getTime()) ? 0 : d.getTime();
+                }
+                if (t.createdAt?.toDate) return t.createdAt.toDate().getTime();
+                if (t.createdAt?.seconds) return t.createdAt.seconds * 1000;
+                if (t.createdAt instanceof Date) return t.createdAt.getTime();
+                return 0;
+            };
+            
+            const timeA = getTimestamp(a);
+            const timeB = getTimestamp(b);
+            const amountA = Number(a.amount);
+            const amountB = Number(b.amount);
+
+            if (sortOrder === 'date-desc') return timeB - timeA;
+            if (sortOrder === 'date-asc') return timeA - timeB;
+            if (sortOrder === 'amount-desc') return amountB - amountA;
+            if (sortOrder === 'amount-asc') return amountA - amountB;
+            return 0;
+        });
+    }
+
+    return result;
+  }, [allTransactions, filterType, filterCategory, sortOrder, searchTerm, viewMode]);
+
+  // Export Logic
+  const handleExportCSV = () => {
+    if (filteredTransactions.length === 0) return alert("No data to export");
+
+    // Prepare data for CSV
+    const exportData = filteredTransactions.map(t => ({
+      Date: t.date || '',
+      Time: t.time || '',
+      Description: t.label || t.item || '',
+      Type: t.type,
+      Category: t.category,
+      Wallet: t.walletName || 'N/A',
+      Amount: t.amount,
+      RawType: t.rawType
+    }));
+
+    const csv = Papa.unparse(exportData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `transactions_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const tableColumns = useMemo(() => [
+    { key: 'date', label: 'Date', filterable: true, width: '120px' },
+    { key: 'time', label: 'Time', width: '100px', render: (row) => row.time || '-' },
+    { key: 'label', label: 'Description', filterable: true },
+    { key: 'category', label: 'Category', filterable: true, width: '150px' },
+    { key: 'walletName', label: 'Wallet', filterable: true, width: '150px' },
+    { key: 'type', label: 'Type', filterable: true, width: '100px', render: (row) => (
+        <Badge bg={row.type === 'income' ? 'success' : row.type === 'expense' ? 'danger' : 'primary'}>
+            {row.type.toUpperCase()}
+        </Badge>
+    )},
+    { key: 'amount', label: 'Amount', type: 'number', filterable: true, width: '120px', render: (row) => (
+        <span className={`fw-bold ${row.type === 'income' ? 'text-success' : 'text-danger'}`}>
+            {row.type === 'expense' ? '-' : '+'}{row.amount}
+        </span>
+    )}
+  ], []);
+
+  const isDateSorted = sortOrder.includes('date');
   const groupedTransactions = useMemo(() => {
+    if (viewMode === 'table') return {};
+    if (!isDateSorted) return { 'All Transactions': filteredTransactions };
+
     const groups = {};
     filteredTransactions.forEach(t => {
       let dateKey = 'Unknown Date';
       try {
-        if (t.date) {
-          dateKey = t.date;
-        } else if (t.createdAt?.toDate) {
-          dateKey = t.createdAt.toDate().toISOString().split('T')[0];
-        } else if (t.createdAt?.seconds) {
-          dateKey = new Date(t.createdAt.seconds * 1000).toISOString().split('T')[0];
-        } else if (t.createdAt instanceof Date) {
-          dateKey = t.createdAt.toISOString().split('T')[0];
-        }
-      } catch (e) {
-        console.error("Date parsing error:", e);
-      }
-      
+        if (t.date) dateKey = t.date;
+        else if (t.createdAt?.toDate) dateKey = t.createdAt.toDate().toISOString().split('T')[0];
+        else if (t.createdAt instanceof Date) dateKey = t.createdAt.toISOString().split('T')[0];
+      } catch (e) { }
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(t);
     });
 
-    return Object.keys(groups).sort((a, b) => {
+    const keys = Object.keys(groups).sort((a, b) => {
       const dateA = new Date(a).getTime() || 0;
       const dateB = new Date(b).getTime() || 0;
-      return dateB - dateA;
-    }).reduce((acc, key) => {
-      acc[key] = groups[key];
-      return acc;
-    }, {});
-  }, [filteredTransactions]);
+      return sortOrder === 'date-desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    return keys.reduce((acc, key) => { acc[key] = groups[key]; return acc; }, {});
+  }, [filteredTransactions, isDateSorted, sortOrder, viewMode]);
 
   const stats = useMemo(() => {
     let cashIn = 0;
@@ -142,58 +216,109 @@ const TransactionHistory = () => {
   };
 
   const formatDateLabel = (dateStr) => {
+    if (!isDateSorted) return 'All Results';
     if (!dateStr || dateStr === 'Unknown Date') return 'Unknown Date';
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      
       const today = new Date();
       const yesterday = new Date();
       yesterday.setDate(today.getDate() - 1);
-
       if (date.toDateString() === today.toDateString()) return 'Today';
       if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-      
-      return date.toLocaleDateString('en-GB', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
-      });
-    } catch (e) {
-      return dateStr;
-    }
+      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (e) { return dateStr; }
   };
 
   return (
     <div className="pb-5">
       {/* Search and Filter */}
-      <Card className="custom-card border-0 shadow-sm mb-4">
+      <Card className={`custom-card border-0 shadow-sm mb-4 ${isDarkMode ? 'bg-dark text-white' : ''}`}>
         <Card.Body className="p-3">
-          <div className="d-flex flex-column flex-md-row gap-3">
-            <InputGroup className="shadow-none bg-light rounded-3 overflow-hidden border-0">
-              <InputGroup.Text className="bg-transparent border-0 px-3">
-                <FaSearch className="text-muted" />
-              </InputGroup.Text>
-              <Form.Control 
-                placeholder="Search transactions..." 
-                className="bg-transparent border-0 py-2 shadow-none"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </InputGroup>
+          <Row className="g-2 align-items-center">
+            <Col xs={12} md={4}>
+              <InputGroup className={`shadow-none rounded-3 overflow-hidden border-0 h-100 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`}>
+                <InputGroup.Text className={`border-0 px-3 ${isDarkMode ? 'bg-secondary text-light' : 'bg-transparent text-muted'}`}>
+                  <FaSearch />
+                </InputGroup.Text>
+                <Form.Control 
+                  placeholder="Search..." 
+                  className={`border-0 py-2 shadow-none ${isDarkMode ? 'bg-secondary text-white' : 'bg-transparent'}`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </InputGroup>
+            </Col>
             
-            <Form.Select 
-              value={filterType} 
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-auto border-0 fw-bold text-primary shadow-none bg-primary bg-opacity-10 rounded-3"
-              style={{ minWidth: '140px' }}
-            >
-              <option value="all">All Types</option>
-              <option value="income">Cash In</option>
-              <option value="expense">Cash Out</option>
-              <option value="transfer">Transfers</option>
-            </Form.Select>
-          </div>
+            {viewMode === 'list' && (
+                <>
+                    <Col xs={4} md={2}>
+                    <Form.Select 
+                        value={filterType} 
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className={`border-0 fw-bold shadow-none rounded-3 h-100 ${isDarkMode ? 'bg-secondary text-info' : 'bg-primary bg-opacity-10 text-primary'}`}
+                    >
+                        <option value="all">All Types</option>
+                        <option value="income">In</option>
+                        <option value="expense">Out</option>
+                        <option value="transfer">Transfer</option>
+                    </Form.Select>
+                    </Col>
+
+                    <Col xs={4} md={2}>
+                    <Form.Select 
+                        value={sortOrder} 
+                        onChange={(e) => setSortOrder(e.target.value)}
+                        className={`border-0 fw-bold shadow-none rounded-3 h-100 ${isDarkMode ? 'bg-secondary text-light' : 'bg-light text-dark'}`}
+                    >
+                        <option value="date-desc">Newest</option>
+                        <option value="date-asc">Oldest</option>
+                        <option value="amount-desc">Highest</option>
+                    </Form.Select>
+                    </Col>
+                </>
+            )}
+
+            <Col className="text-end">
+                <div className={`d-inline-flex rounded-pill p-1 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`}>
+                    <Button 
+                        variant={viewMode === 'list' ? (isDarkMode ? 'dark shadow-sm' : 'white shadow-sm') : 'transparent'} 
+                        size="sm" 
+                        className={`rounded-pill border-0 px-3 ${viewMode === 'list' ? '' : (isDarkMode ? 'text-light opacity-50' : 'text-muted')}`}
+                        onClick={() => setViewMode('list')}
+                    >
+                        <FaList />
+                    </Button>
+                    <Button 
+                        variant={viewMode === 'table' ? (isDarkMode ? 'dark shadow-sm' : 'white shadow-sm') : 'transparent'} 
+                        size="sm" 
+                        className={`rounded-pill border-0 px-3 ${viewMode === 'table' ? '' : (isDarkMode ? 'text-light opacity-50' : 'text-muted')}`}
+                        onClick={() => setViewMode('table')}
+                    >
+                        <FaTable />
+                    </Button>
+                    {/* New Export Buttons */}
+                    <Button 
+                        variant="transparent" 
+                        size="sm" 
+                        className={`rounded-pill border-0 px-2 ${isDarkMode ? 'text-light hover-bg-dark' : 'text-success hover-bg-white'}`}
+                        onClick={handleExportCSV}
+                        title="Download CSV"
+                    >
+                        <FaFileDownload /> CSV
+                    </Button>
+                    <Button 
+                        variant="transparent" 
+                        size="sm" 
+                        className={`rounded-pill border-0 px-2 ${isDarkMode ? 'text-light hover-bg-dark' : 'text-danger hover-bg-white'}`}
+                        onClick={() => generateFilteredPDF(filteredTransactions)}
+                        title="Download PDF"
+                    >
+                        <FaFileDownload /> PDF
+                    </Button>
+                </div>
+            </Col>
+          </Row>
         </Card.Body>
       </Card>
 
@@ -219,83 +344,100 @@ const TransactionHistory = () => {
         </Col>
       </Row>
 
-      {/* Grouped Transaction List */}
-      {Object.keys(groupedTransactions).length > 0 ? (
-        Object.keys(groupedTransactions).map(date => (
-          <div key={date} className="mb-4">
-            <div className="d-flex align-items-center mb-3">
-              <div className="fw-bold text-muted small text-uppercase tracking-wider">{formatDateLabel(date)}</div>
-              <div className="flex-grow-1 ms-3 border-top opacity-10"></div>
-            </div>
-            
-            {groupedTransactions[date].map((t, idx) => (
-              <motion.div
-                key={t.id || `tx-${date}-${idx}`}
-                whileHover={{ x: 5 }}
-                className="mb-2"
-              >
-                <Card className="custom-card border-0 shadow-sm overflow-hidden">
-                  <Card.Body className="p-3">
-                    <div className="d-flex align-items-center">
-                      <div className={`rounded-circle p-2 me-3 d-flex align-items-center justify-content-center bg-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'} bg-opacity-10 text-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'}`} style={{ width: '45px', height: '45px' }}>
-                        {t.icon ? <t.icon size={20} /> : <FaExchangeAlt size={20} />}
-                      </div>
-
-                      <div className="flex-grow-1 overflow-hidden">
-                        <div className="d-flex justify-content-between align-items-start">
-                          <div className="overflow-hidden">
-                            <div className="fw-bold text-truncate">{t.label}</div>
-                            <div className="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                              <Badge bg="light" text="secondary" className="fw-normal border border-secondary border-opacity-10 px-2 py-1" style={{ fontSize: '0.65rem' }}>
-                                {t.category || 'Other'}
-                              </Badge>
-                              {t.walletName && (
-                                <Badge bg="primary" className="bg-opacity-10 text-primary fw-normal px-2 py-1" style={{ fontSize: '0.65rem' }}>
-                                  {t.walletName}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="text-end ms-2" style={{ minWidth: '100px' }}>
-                            <div className={`fw-bold ${t.type === 'income' ? 'text-success' : t.type === 'expense' ? 'text-danger' : 'text-primary'}`}>
-                              {t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}
-                              {formatCurrency(t.amount)}
-                            </div>
-                            <div className="d-flex justify-content-end gap-2 mt-1">
-                              <Button 
-                                variant="light" 
-                                className="text-primary p-0 opacity-50" 
-                                onClick={() => setEditingTransaction(t)}
-                              >
-                                <FaEdit size={12} />
-                              </Button>
-                              <Button 
-                                variant="link" 
-                                className="text-danger p-0 opacity-50" 
-                                onClick={() => handleDelete(t)}
-                              >
-                                <FaTrash size={12} />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        ))
+      {viewMode === 'table' ? (
+          <SmartTable 
+            data={filteredTransactions} 
+            columns={tableColumns} 
+            onEdit={setEditingTransaction}
+            onDelete={handleDelete}
+          />
       ) : (
-        <div className="text-center py-5">
-          <div className="text-muted mb-3 opacity-25">
-            <FaHistory size={60} />
-          </div>
-          <h5 className="text-muted">No transactions found</h5>
-          <p className="small text-muted">Try adjusting your search or filters.</p>
-        </div>
+        /* Grouped Transaction List */
+        Object.keys(groupedTransactions).length > 0 ? (
+            Object.keys(groupedTransactions).map(key => (
+            <div key={key} className="mb-4">
+                {isDateSorted && (
+                    <div className="d-flex align-items-center mb-3">
+                        <div className="fw-bold text-muted small text-uppercase tracking-wider">{formatDateLabel(key)}</div>
+                        <div className="flex-grow-1 ms-3 border-top opacity-10"></div>
+                    </div>
+                )}
+                
+                {groupedTransactions[key].map((t, idx) => (
+                <motion.div
+                    key={t.id || `tx-${key}-${idx}`}
+                    whileHover={{ x: 5 }}
+                    className="mb-2"
+                >
+                    <Card className={`custom-card border-0 shadow-sm overflow-hidden ${isDarkMode ? 'bg-dark text-light border-secondary' : ''}`}>
+                    <Card.Body className="p-3">
+                        <div className="d-flex align-items-center">
+                        <div className={`rounded-circle p-2 me-3 d-flex align-items-center justify-content-center bg-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'} bg-opacity-10 text-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'}`} style={{ width: '45px', height: '45px' }}>
+                            {t.icon ? <t.icon size={20} /> : <FaExchangeAlt size={20} />}
+                        </div>
+
+                        <div className="flex-grow-1 overflow-hidden">
+                            <div className="d-flex justify-content-between align-items-start">
+                            <div className="overflow-hidden">
+                                <div className="fw-bold text-truncate">{t.label}</div>
+                                <div className="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                                <Badge bg={isDarkMode ? 'secondary' : 'light'} text={isDarkMode ? 'light' : 'secondary'} className={`fw-normal border border-opacity-10 px-2 py-1 ${isDarkMode ? 'border-secondary' : 'border-secondary'}`} style={{ fontSize: '0.65rem' }}>
+                                    {t.category || 'Other'}
+                                </Badge>
+                                {t.walletName && (
+                                    <Badge bg="primary" className="bg-opacity-10 text-primary fw-normal px-2 py-1" style={{ fontSize: '0.65rem' }}>
+                                    {t.walletName}
+                                    </Badge>
+                                )}
+                                {!isDateSorted && t.date && (
+                                    <small className="text-muted ms-1" style={{ fontSize: '0.65rem' }}>{t.date}</small>
+                                )}
+                                {t.time && (
+                                    <small className="text-muted ms-1 border-start ps-2" style={{ fontSize: '0.65rem' }}>{t.time}</small>
+                                )}
+                                </div>
+                            </div>
+                            
+                            <div className="text-end ms-2" style={{ minWidth: '100px' }}>
+                                <div className={`fw-bold ${t.type === 'income' ? 'text-success' : t.type === 'expense' ? 'text-danger' : 'text-primary'}`}>
+                                {t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}
+                                {formatCurrency(t.amount)}
+                                </div>
+                                <div className="d-flex justify-content-end gap-2 mt-1">
+                                <Button 
+                                    variant={isDarkMode ? 'outline-secondary' : 'light'} 
+                                    className={`p-0 opacity-50 ${isDarkMode ? 'text-info border-0' : 'text-primary'}`}
+                                    onClick={() => setEditingTransaction(t)}
+                                >
+                                    <FaEdit size={12} />
+                                </Button>
+                                <Button 
+                                    variant={isDarkMode ? 'outline-secondary' : 'light'} 
+                                    className="text-danger p-0 opacity-50 border-0" 
+                                    onClick={() => handleDelete(t)}
+                                >
+                                    <FaTrash size={12} />
+                                </Button>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                        </div>
+                    </Card.Body>
+                    </Card>
+                </motion.div>
+                ))}
+            </div>
+            ))
+        ) : (
+            <div className="text-center py-5">
+            <div className="text-muted mb-3 opacity-25">
+                <FaHistory size={60} />
+            </div>
+            <h5 className="text-muted">No transactions found</h5>
+            <p className="small text-muted">Try adjusting your search or filters.</p>
+            </div>
+        )
       )}
 
       {confirmDelete && (

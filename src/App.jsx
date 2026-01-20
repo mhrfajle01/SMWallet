@@ -1,24 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Navbar, Button } from 'react-bootstrap';
+import { Container, Navbar, Button, Nav } from 'react-bootstrap';
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
-import { PlannerProvider } from './context/PlannerContext';
+import { ProductivityProvider } from './context/ProductivityContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+
+// Finance Components
 import WalletPanel from './components/WalletPanel';
 import GoalsPanel from './components/GoalsPanel';
 import BudgetPlanner from './components/BudgetPlanner';
 import ReportPanel from './components/ReportPanel';
 import SettingsPanel from './components/SettingsPanel';
-import PlannerView from './components/PlannerView';
+import DashboardView from './components/DashboardView';
+
+// Productivity Components
+import GamifyDashboard from './components/productivity/GamifyDashboard';
+import HabitTracker from './components/productivity/HabitTracker';
+import TodoManager from './components/productivity/TodoManager';
+import NotesApp from './components/productivity/NotesApp';
+import DataTransfer from './components/DataTransfer';
+
+// Shared Components
 import CreateWalletModal from './components/CreateWalletModal';
 import AddGoalModal from './components/AddGoalModal';
-import DashboardView from './components/DashboardView';
 import BottomNav from './components/BottomNav';
 import Sidebar from './components/Sidebar';
 import AuthView from './components/AuthView';
 import AddTransactionModal from './components/AddTransactionModal';
 import PageLoader from './components/PageLoader';
-import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaCalendarCheck } from 'react-icons/fa';
+import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaGamepad } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Error Boundary Component
@@ -43,17 +54,25 @@ class ErrorBoundary extends React.Component {
 }
 
 // Mobile Header Component
-const MobileHeader = ({ viewMode, onViewModeChange }) => {
+const MobileHeader = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const { logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isProductivity = location.pathname.includes('/productivity');
+
   return (
     <Navbar className="bg-white border-bottom shadow-sm d-lg-none sticky-top" style={{ height: 'var(--header-height)', background: 'var(--nav-bg)', borderColor: 'var(--border-color)' }}>
       <Container>
-        <Navbar.Brand className="d-flex align-items-center fw-bold text-primary" onClick={() => onViewModeChange('wallet')} style={{ cursor: 'pointer' }}>
-          <div className="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
-            {viewMode === 'wallet' ? <FaWallet size={20} /> : <FaCalendarCheck size={20} />}
+        <Navbar.Brand 
+          className="d-flex align-items-center fw-bold text-primary" 
+          onClick={() => navigate(isProductivity ? '/wallets' : '/productivity/gamify')} 
+          style={{ cursor: 'pointer' }}
+        >
+          <div className={`bg-opacity-10 rounded-circle p-2 me-2 ${isProductivity ? 'bg-indigo text-indigo' : 'bg-primary text-primary'}`} style={{ color: isProductivity ? '#6366f1' : '' }}>
+            {isProductivity ? <FaGamepad size={20} /> : <FaWallet size={20} />}
           </div>
-          {viewMode === 'wallet' ? 'SMWallet' : 'SMPlanner'}
+          {isProductivity ? 'Productivity' : 'SMWallet'}
         </Navbar.Brand>
         <div className="d-flex align-items-center gap-3">
           <Button variant="link" onClick={toggleTheme} className="text-secondary p-0">
@@ -64,16 +83,40 @@ const MobileHeader = ({ viewMode, onViewModeChange }) => {
           </Button>
         </div>
       </Container>
+      {/* Mobile Sub-Nav for Productivity */}
+      {isProductivity && (
+         <div className="w-100 overflow-auto d-flex gap-3 px-3 pb-2 border-top pt-2" style={{ background: 'var(--nav-bg)' }}>
+            <Button variant={location.pathname.includes('gamify') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/gamify')}>Gamify</Button>
+            <Button variant={location.pathname.includes('habits') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/habits')}>Habits</Button>
+            <Button variant={location.pathname.includes('todos') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/todos')}>Tasks</Button>
+            <Button variant={location.pathname.includes('notes') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/notes')}>Notes</Button>
+         </div>
+      )}
     </Navbar>
   );
 };
 
-function AppContent() {
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="vh-100 d-flex justify-content-center align-items-center" style={{ background: 'var(--bg-color)' }}>
+        <PageLoader />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthView />;
+  }
+
+  return children;
+}
+
+function AppLayout() {
   const { loading } = useApp();
-  const { user } = useAuth();
-  const [viewMode, setViewMode] = useState('wallet'); // 'wallet' or 'planner'
-  const [activeTab, setActiveTab] = useState('wallets');
-  const [isPreparing, setIsPreparing] = useState(false);
+  const location = useLocation();
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
@@ -84,25 +127,6 @@ function AppContent() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  if (!user) {
-    return <AuthView />;
-  }
-
-  const handleTabChange = (tab) => {
-    if (tab === activeTab) return;
-    setIsPreparing(true);
-    setActiveTab(tab);
-    setTimeout(() => setIsPreparing(false), 400); 
-  };
-
-  const handleViewModeChange = (mode) => {
-    if (mode === viewMode) return;
-    setIsPreparing(true);
-    setViewMode(mode);
-    setActiveTab(mode === 'wallet' ? 'wallets' : 'planner-home');
-    setTimeout(() => setIsPreparing(false), 400);
-  };
 
   if (loading) {
     return (
@@ -117,85 +141,52 @@ function AppContent() {
       {/* Sidebar for Desktop */}
       {isDesktop && (
         <Sidebar 
-          activeTab={activeTab} 
-          onTabChange={handleTabChange}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
           onAddTransaction={() => setShowAddTransactionModal(true)}
         />
       )}
 
       {/* Main Content Area */}
       <div className="main-content d-flex flex-column p-0">
-        {!isDesktop && <MobileHeader viewMode={viewMode} onViewModeChange={handleViewModeChange} />}
+        {!isDesktop && <MobileHeader />}
         
         <div className="flex-grow-1 overflow-auto" style={{ padding: isDesktop ? '2rem' : '1rem', paddingBottom: isDesktop ? '2rem' : '100px' }}>
           <Container fluid={isDesktop} className={isDesktop ? "px-4" : "p-0"}>
             <AnimatePresence mode="wait">
-              {isPreparing ? (
-                <motion.div
-                  key="preparing"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="preparing-overlay"
-                >
-                  <PageLoader />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <ErrorBoundary>
-                    {activeTab === 'wallets' && (
-                      <WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />
-                    )}
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ErrorBoundary>
+                  <Routes>
+                    {/* Finance Routes */}
+                    <Route path="/wallets" element={<WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />} />
+                    <Route path="/goals" element={<GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />} />
+                    <Route path="/budget" element={<BudgetPlanner />} />
+                    <Route path="/reports" element={<ReportPanel />} />
+                    <Route path="/settings" element={<SettingsPanel />} />
+                    <Route path="/history" element={<DashboardView />} />
                     
-                    {activeTab === 'goals' && (
-                      <GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />
-                    )}
-
-                    {activeTab === 'budget' && (
-                      <BudgetPlanner />
-                    )}
+                    {/* Productivity Routes */}
+                    <Route path="/productivity/gamify" element={<GamifyDashboard />} />
+                    <Route path="/productivity/habits" element={<HabitTracker />} />
+                    <Route path="/productivity/todos" element={<TodoManager />} />
+                    <Route path="/productivity/notes" element={<NotesApp />} />
+                    <Route path="/productivity/data" element={<DataTransfer />} />
                     
-                    {activeTab === 'reports' && (
-                      <ReportPanel />
-                    )}
-
-                    {activeTab === 'settings' && (
-                      <SettingsPanel />
-                    )}
-                    
-                    {activeTab === 'history' && (
-                      <DashboardView />
-                    )}
-
-                    {activeTab === 'planner-home' && (
-                      <PlannerView activeTab="home" />
-                    )}
-
-                    {activeTab === 'tasks' && (
-                      <PlannerView activeTab="tasks" />
-                    )}
-
-                    {activeTab === 'habits' && (
-                      <PlannerView activeTab="habits" />
-                    )}
-                  </ErrorBoundary>
-                </motion.div>
-              )}
+                    <Route path="*" element={<Navigate to="/wallets" replace />} />
+                  </Routes>
+                </ErrorBoundary>
+              </motion.div>
             </AnimatePresence>
           </Container>
         </div>
       </div>
 
       {/* Mobile Floating Action Button */}
-      {!isDesktop && viewMode === 'wallet' && (
+      {!isDesktop && !location.pathname.includes('/productivity') && (
         <div className="fab-container">
           <motion.button 
             whileHover={{ scale: 1.1 }}
@@ -211,12 +202,7 @@ function AppContent() {
 
       {/* Mobile Bottom Navigation */}
       {!isDesktop && (
-        <BottomNav 
-          activeTab={activeTab} 
-          onTabChange={handleTabChange} 
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-        />
+        <BottomNav />
       )}
 
       {/* Modals */}
@@ -243,9 +229,13 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <AppProvider>
-          <PlannerProvider>
-            <AppContent />
-          </PlannerProvider>
+          <ProductivityProvider>
+            <HashRouter>
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            </HashRouter>
+          </ProductivityProvider>
         </AppProvider>
       </AuthProvider>
     </ThemeProvider>

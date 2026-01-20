@@ -9,21 +9,31 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "vitest",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "bootstrap": "^5.3.8",
     "canvas-confetti": "^1.9.4",
     "firebase": "^12.8.0",
     "framer-motion": "^12.26.2",
+    "jsdom": "^27.4.0",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
+    "papaparse": "^5.5.3",
     "react": "^19.2.0",
     "react-bootstrap": "^2.10.10",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
-    "react-icons": "^5.5.0"
+    "react-hook-form": "^7.71.1",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.12.0",
+    "vitest": "^4.0.17",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

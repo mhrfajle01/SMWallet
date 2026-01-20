@@ -2,33 +2,45 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Nav, Row, Col } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
 import { playSound } from '../utils/soundEffects';
-import { FaUtensils, FaShoppingCart, FaExchangeAlt } from 'react-icons/fa';
+import { FaUtensils, FaShoppingCart, FaArrowDown } from 'react-icons/fa';
 
 const EditTransactionModal = ({ show, onHide, transaction }) => {
-  const { wallets, categories, updateMeal, updatePurchase, addMeal, addPurchase, deleteMeal, deletePurchase } = useApp();
+  const { 
+    wallets, categories, 
+    updateMeal, updatePurchase, updateIncome,
+    addMeal, addPurchase, addIncome,
+    deleteMeal, deletePurchase, deleteIncome 
+  } = useApp();
   
-  // Local state for the unified form
-  const [type, setType] = useState('purchase'); // 'meal' or 'purchase'
+  // 'meal', 'purchase', 'income'
+  const [type, setType] = useState('purchase'); 
+  
   const [formData, setFormData] = useState({
     date: '',
     item: '',
     amount: '',
     walletId: '',
     category: 'Other',
-    mealType: 'Snack'
+    mealType: 'Snack',
+    source: 'Salary' // For Income
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (transaction) {
-      setType(transaction.rawType === 'meal' ? 'meal' : 'purchase');
+      let initialType = 'purchase';
+      if (transaction.rawType === 'meal') initialType = 'meal';
+      if (transaction.rawType === 'income') initialType = 'income';
+      
+      setType(initialType);
       setFormData({
         date: transaction.date || '',
-        item: transaction.item || '',
+        item: transaction.item || transaction.label || '', // Income uses 'label' or 'source' sometimes
         amount: transaction.amount || '',
         walletId: transaction.walletId || '',
         category: transaction.category || 'Other',
-        mealType: transaction.mealType || 'Snack'
+        mealType: transaction.mealType || 'Snack',
+        source: transaction.source || 'Salary'
       });
     }
   }, [transaction]);
@@ -43,24 +55,46 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
 
     try {
       const isTypeChanged = type !== transaction.rawType;
-
+      
+      // If type changed, we must delete old and create new
       if (isTypeChanged) {
-        // 1. Delete from old collection
+        // 1. Delete Old
         if (transaction.rawType === 'meal') await deleteMeal(transaction.id);
-        else await deletePurchase(transaction.id);
+        else if (transaction.rawType === 'purchase') await deletePurchase(transaction.id);
+        else if (transaction.rawType === 'income') await deleteIncome(transaction.id, transaction.walletId, transaction.amount);
 
-        // 2. Add to new collection
+        // 2. Create New
         if (type === 'meal') {
           await addMeal({ ...formData, walletName, month });
-        } else {
+        } else if (type === 'purchase') {
           await addPurchase({ ...formData, walletName, month });
+        } else if (type === 'income') {
+          await addIncome({ 
+            date: formData.date,
+            source: formData.source || formData.item, // Use item input as source if switched
+            amount: formData.amount,
+            walletId: formData.walletId,
+            walletName
+          });
         }
       } else {
-        // Just update in current collection
+        // Just Update
         if (type === 'meal') {
           await updateMeal(transaction.id, { ...formData, walletName, month });
-        } else {
+        } else if (type === 'purchase') {
           await updatePurchase(transaction.id, { ...formData, walletName, month });
+        } else if (type === 'income') {
+           // Pass old data to handle wallet reversion
+           await updateIncome(transaction.id, 
+             { walletId: transaction.walletId, amount: transaction.amount }, 
+             { 
+                date: formData.date,
+                source: formData.source || formData.item,
+                amount: formData.amount,
+                walletId: formData.walletId,
+                walletName
+             }
+           );
         }
       }
 
@@ -90,7 +124,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
                 onClick={() => setType('purchase')}
                 className="rounded-pill text-center py-2 d-flex align-items-center justify-content-center gap-2"
               >
-                <FaShoppingCart size={14} /> General
+                <FaShoppingCart size={14} /> Spend
               </Nav.Link>
             </Nav.Item>
             <Nav.Item className="flex-grow-1">
@@ -102,22 +136,48 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
                 <FaUtensils size={14} /> Meal
               </Nav.Link>
             </Nav.Item>
+             <Nav.Item className="flex-grow-1">
+              <Nav.Link 
+                active={type === 'income'} 
+                onClick={() => setType('income')}
+                className="rounded-pill text-center py-2 d-flex align-items-center justify-content-center gap-2"
+              >
+                <FaArrowDown size={14} /> Income
+              </Nav.Link>
+            </Nav.Item>
           </Nav>
         </div>
 
         <Form onSubmit={handleSubmit}>
           <Row className="g-3">
             <Col xs={12}>
-              <Form.Group>
-                <Form.Label className="small fw-bold text-muted uppercase">Item Name</Form.Label>
-                <Form.Control 
-                  type="text" 
-                  value={formData.item}
-                  onChange={(e) => setFormData({...formData, item: e.target.value})}
-                  required
-                  className="py-2"
-                />
-              </Form.Group>
+              {type === 'income' ? (
+                <Form.Group>
+                  <Form.Label className="small fw-bold text-muted uppercase">Source</Form.Label>
+                  <Form.Select 
+                     value={formData.source}
+                     onChange={(e) => setFormData({...formData, source: e.target.value})}
+                     className="py-2"
+                  >
+                    <option>Salary</option>
+                    <option>Freelance</option>
+                    <option>Gift</option>
+                    <option>Business</option>
+                    <option>Other</option>
+                  </Form.Select>
+                </Form.Group>
+              ) : (
+                <Form.Group>
+                  <Form.Label className="small fw-bold text-muted uppercase">Item Name</Form.Label>
+                  <Form.Control 
+                    type="text" 
+                    value={formData.item}
+                    onChange={(e) => setFormData({...formData, item: e.target.value})}
+                    required
+                    className="py-2"
+                  />
+                </Form.Group>
+              )}
             </Col>
 
             <Col xs={6}>
@@ -147,7 +207,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
             </Col>
 
             <Col xs={12}>
-              {type === 'meal' ? (
+              {type === 'meal' && (
                 <Form.Group>
                   <Form.Label className="small fw-bold text-muted uppercase">Meal Type</Form.Label>
                   <Form.Select 
@@ -161,7 +221,9 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
                     <option>Snack</option>
                   </Form.Select>
                 </Form.Group>
-              ) : (
+              )}
+              
+              {type === 'purchase' && (
                 <Form.Group>
                   <Form.Label className="small fw-bold text-muted uppercase">Category</Form.Label>
                   <Form.Select 
@@ -177,7 +239,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
 
             <Col xs={12}>
               <Form.Group className="mb-3">
-                <Form.Label className="small fw-bold text-muted uppercase">Paid From Wallet</Form.Label>
+                <Form.Label className="small fw-bold text-muted uppercase">{type === 'income' ? 'Deposit To Wallet' : 'Paid From Wallet'}</Form.Label>
                 <Form.Select 
                   value={formData.walletId}
                   onChange={(e) => setFormData({...formData, walletId: e.target.value})}

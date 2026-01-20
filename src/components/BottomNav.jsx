@@ -1,66 +1,74 @@
 import React from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   FaWallet, 
-  FaHistory, 
-  FaPiggyBank, 
   FaChartPie, 
-  FaFileAlt, 
   FaCog, 
-  FaCalendarCheck, 
-  FaTasks, 
-  FaCheckCircle,
-  FaExchangeAlt 
+  FaGamepad,
+  FaHistory,
+  FaPiggyBank,
+  FaFileAlt
 } from 'react-icons/fa';
 
-const BottomNav = ({ activeTab, onTabChange, viewMode, onViewModeChange }) => {
-  const walletNav = [
-    { id: 'wallets', icon: FaWallet, label: 'Wallets' },
-    { id: 'history', icon: FaHistory, label: 'History' },
-    { id: 'goals', icon: FaPiggyBank, label: 'Goals' },
-    { id: 'budget', icon: FaChartPie, label: 'Budget' },
-    { id: 'reports', icon: FaFileAlt, label: 'Reports' },
-  ];
-
-  const plannerNav = [
-    { id: 'planner-home', icon: FaCalendarCheck, label: 'Duty' },
-    { id: 'tasks', icon: FaTasks, label: 'Tasks' },
-    { id: 'habits', icon: FaCheckCircle, label: 'Habits' },
-  ];
-
-  const navItems = viewMode === 'wallet' ? walletNav : plannerNav;
-
+const BottomNav = () => {
   return (
-    <div className="bottom-nav shadow-lg border-top" style={{ overflowX: 'auto', justifyContent: 'start', background: 'var(--nav-bg)' }}>
-      {/* Switch Button */}
-      <button 
-        className="nav-item text-primary"
-        onClick={() => onViewModeChange(viewMode === 'wallet' ? 'planner' : 'wallet')}
-        style={{ minWidth: '70px', borderRight: '1px solid var(--border-color)' }}
+    <div className="bottom-nav shadow-lg border-top" style={{ overflowX: 'auto', justifyContent: 'space-around', background: 'var(--nav-bg)' }}>
+      
+      <NavLink 
+        to="/wallets"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
       >
-        <FaExchangeAlt className="nav-icon" />
-        <span className="fw-bold">{viewMode === 'wallet' ? 'Planner' : 'Wallet'}</span>
-      </button>
+        <FaWallet className="nav-icon" />
+        <span>Wallets</span>
+      </NavLink>
 
-      {navItems.map(item => (
-        <button 
-          key={item.id}
-          className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-          onClick={() => onTabChange(item.id)}
-          style={{ minWidth: '70px' }}
-        >
-          <item.icon className="nav-icon" />
-          <span>{item.label}</span>
-        </button>
-      ))}
+      <NavLink 
+        to="/history"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+      >
+        <FaHistory className="nav-icon" />
+        <span>History</span>
+      </NavLink>
 
-      <button 
-        className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-        onClick={() => onTabChange('settings')}
-        style={{ minWidth: '70px' }}
+      <NavLink 
+        to="/goals"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+      >
+        <FaPiggyBank className="nav-icon" />
+        <span>Goals</span>
+      </NavLink>
+
+      <NavLink 
+        to="/budget"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+      >
+        <FaChartPie className="nav-icon" />
+        <span>Budget</span>
+      </NavLink>
+
+      <NavLink 
+        to="/reports"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+      >
+        <FaFileAlt className="nav-icon" />
+        <span>Reports</span>
+      </NavLink>
+
+      <NavLink 
+        to="/productivity/gamify"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive || location.pathname?.includes('productivity') ? 'active' : ''}`}
+      >
+        <FaGamepad className="nav-icon" />
+        <span>Gamify</span>
+      </NavLink>
+
+      <NavLink 
+        to="/settings"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
       >
         <FaCog className="nav-icon" />
         <span>Settings</span>
-      </button>
+      </NavLink>
     </div>
   );
 };
