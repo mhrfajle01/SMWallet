@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { generateFilteredPDF } from '../utils/pdfGenerator';
 import Papa from 'papaparse';
 
-const TransactionHistory = () => {
+const TransactionHistory = ({ walletId = null }) => {
   const { 
     meals = [], 
     purchases = [], 
@@ -56,6 +56,16 @@ const TransactionHistory = () => {
 
   const filteredTransactions = useMemo(() => {
     let result = allTransactions.filter(t => {
+      // Wallet Filter
+      if (walletId) {
+         // Check direct walletId match (most items)
+         const directMatch = t.walletId === walletId;
+         // Check transfer source/dest
+         const transferMatch = t.rawType === 'transfer' && (t.sourceId === walletId || t.destId === walletId);
+         
+         if (!directMatch && !transferMatch) return false;
+      }
+
       const label = (t.label || '').toLowerCase();
       const category = (t.category || '').toLowerCase();
       const search = searchTerm.toLowerCase();
@@ -77,13 +87,27 @@ const TransactionHistory = () => {
     if (viewMode === 'list') {
         result.sort((a, b) => {
             const getTimestamp = (t) => {
+                // Use full user date+time for sorting
                 if (t.date) {
                     const d = new Date(t.date);
+                    // If time exists, parse it, otherwise default to midnight
+                    if (t.time) {
+                        const [hours, minutes] = t.time.match(/(\d+):(\d+)\s*(AM|PM)/i) ? 
+                            (() => {
+                                const match = t.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                                let h = parseInt(match[1]);
+                                const m = parseInt(match[2]);
+                                const ampm = match[3].toUpperCase();
+                                if (ampm === 'PM' && h < 12) h += 12;
+                                if (ampm === 'AM' && h === 12) h = 0;
+                                return [h, m];
+                            })() : [0, 0];
+                        d.setHours(hours, minutes, 0, 0);
+                    }
                     return isNaN(d.getTime()) ? 0 : d.getTime();
                 }
+                // Fallback
                 if (t.createdAt?.toDate) return t.createdAt.toDate().getTime();
-                if (t.createdAt?.seconds) return t.createdAt.seconds * 1000;
-                if (t.createdAt instanceof Date) return t.createdAt.getTime();
                 return 0;
             };
             
@@ -96,12 +120,18 @@ const TransactionHistory = () => {
             if (sortOrder === 'date-asc') return timeA - timeB;
             if (sortOrder === 'amount-desc') return amountB - amountA;
             if (sortOrder === 'amount-asc') return amountA - amountB;
+            if (sortOrder === 'created-desc') {
+                // Sort by actual creation time (System Timestamp)
+                const createdA = a.createdAt?.seconds || 0;
+                const createdB = b.createdAt?.seconds || 0;
+                return createdB - createdA;
+            }
             return 0;
         });
     }
 
     return result;
-  }, [allTransactions, filterType, filterCategory, sortOrder, searchTerm, viewMode]);
+  }, [allTransactions, filterType, filterCategory, sortOrder, searchTerm, viewMode, walletId]);
 
   // Export Logic
   const handleExportCSV = () => {
@@ -180,11 +210,20 @@ const TransactionHistory = () => {
     let cashOut = 0;
     filteredTransactions.forEach(t => {
       const amount = Number(t.amount) || 0;
+      
+      // Handle Transfers specifically if we are in Wallet Mode
+      if (walletId && t.rawType === 'transfer') {
+        if (t.sourceId === walletId) cashOut += amount;
+        else if (t.destId === walletId) cashIn += amount;
+        return;
+      }
+
+      // Default Logic
       if (t.type === 'income') cashIn += amount;
       if (t.type === 'expense') cashOut += amount;
     });
     return { cashIn, cashOut, net: cashIn - cashOut };
-  }, [filteredTransactions]);
+  }, [filteredTransactions, walletId]);
 
   const handleDelete = (transaction) => {
     setConfirmDelete(transaction);
@@ -235,9 +274,10 @@ const TransactionHistory = () => {
       {/* Search and Filter */}
       <Card className={`custom-card border-0 shadow-sm mb-4 ${isDarkMode ? 'bg-dark text-white' : ''}`}>
         <Card.Body className="p-3">
-          <Row className="g-2 align-items-center">
-            <Col xs={12} md={4}>
-              <InputGroup className={`shadow-none rounded-3 overflow-hidden border-0 h-100 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`}>
+          <Row className="g-3 align-items-center">
+            {/* Search - Full on Mobile, 3 cols on Desktop */}
+            <Col xs={12} lg={3}>
+              <InputGroup className={`shadow-none rounded-3 overflow-hidden border-0 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`}>
                 <InputGroup.Text className={`border-0 px-3 ${isDarkMode ? 'bg-secondary text-light' : 'bg-transparent text-muted'}`}>
                   <FaSearch />
                 </InputGroup.Text>
@@ -252,35 +292,38 @@ const TransactionHistory = () => {
             
             {viewMode === 'list' && (
                 <>
-                    <Col xs={4} md={2}>
-                    <Form.Select 
-                        value={filterType} 
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className={`border-0 fw-bold shadow-none rounded-3 h-100 ${isDarkMode ? 'bg-secondary text-info' : 'bg-primary bg-opacity-10 text-primary'}`}
-                    >
-                        <option value="all">All Types</option>
-                        <option value="income">In</option>
-                        <option value="expense">Out</option>
-                        <option value="transfer">Transfer</option>
-                    </Form.Select>
+                    {/* Filters - Split row on Mobile, inline on Desktop */}
+                    <Col xs={6} lg={2}>
+                        <Form.Select 
+                            value={filterType} 
+                            onChange={(e) => setFilterType(e.target.value)}
+                            className={`border-0 fw-bold shadow-none rounded-3 py-2 w-100 ${isDarkMode ? 'bg-secondary text-info' : 'bg-primary bg-opacity-10 text-primary'}`}
+                        >
+                            <option value="all">All Types</option>
+                            <option value="income">In (Income)</option>
+                            <option value="expense">Out (Expense)</option>
+                            <option value="transfer">Transfer</option>
+                        </Form.Select>
                     </Col>
 
-                    <Col xs={4} md={2}>
-                    <Form.Select 
-                        value={sortOrder} 
-                        onChange={(e) => setSortOrder(e.target.value)}
-                        className={`border-0 fw-bold shadow-none rounded-3 h-100 ${isDarkMode ? 'bg-secondary text-light' : 'bg-light text-dark'}`}
-                    >
-                        <option value="date-desc">Newest</option>
-                        <option value="date-asc">Oldest</option>
-                        <option value="amount-desc">Highest</option>
-                    </Form.Select>
+                    <Col xs={6} lg={3}>
+                        <Form.Select 
+                            value={sortOrder} 
+                            onChange={(e) => setSortOrder(e.target.value)}
+                            className={`border-0 fw-bold shadow-none rounded-3 py-2 w-100 ${isDarkMode ? 'bg-secondary text-light' : 'bg-light text-dark'}`}
+                        >
+                            <option value="created-desc">Recently Added</option>
+                            <option value="date-desc">Newest Date</option>
+                            <option value="date-asc">Oldest Date</option>
+                            <option value="amount-desc">Highest Amount</option>
+                        </Form.Select>
                     </Col>
                 </>
             )}
 
-            <Col className="text-end">
-                <div className={`d-inline-flex rounded-pill p-1 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`}>
+            {/* Buttons - Full row on Mobile, Auto on Desktop */}
+            <Col xs={12} lg={viewMode === 'list' ? 4 : 9} className="text-lg-end text-center">
+                <div className={`d-inline-flex flex-wrap justify-content-center gap-1 rounded-4 p-1 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`} style={{ width: 'fit-content' }}>
                     <Button 
                         variant={viewMode === 'list' ? (isDarkMode ? 'dark shadow-sm' : 'white shadow-sm') : 'transparent'} 
                         size="sm" 
@@ -297,7 +340,7 @@ const TransactionHistory = () => {
                     >
                         <FaTable />
                     </Button>
-                    {/* New Export Buttons */}
+                    <div className="vr opacity-25 mx-1 align-self-center" style={{ height: '20px' }}></div>
                     <Button 
                         variant="transparent" 
                         size="sm" 

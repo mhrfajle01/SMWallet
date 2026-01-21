@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Button, Badge } from 'react-bootstrap';
+import { Card, Row, Col, Button, Badge, Modal } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
-import { FaWallet, FaTrash, FaArrowUp, FaArrowDown, FaCoins, FaPlusCircle, FaExchangeAlt } from 'react-icons/fa';
+import { FaWallet, FaTrash, FaArrowUp, FaArrowDown, FaCoins, FaPlusCircle, FaExchangeAlt, FaHistory } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
 import QuickDepositModal from './QuickDepositModal';
 import TransferModal from './TransferModal';
+import TransactionHistory from './TransactionHistory';
+import { useTheme } from '../context/ThemeContext';
 
 const WalletPanel = ({ onOpenCreateModal }) => {
   const { globalStats, wallets, deleteWallet } = useApp();
+  const { isDarkMode } = useTheme();
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [quickDepositWallet, setQuickDepositWallet] = useState(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState(null);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-BD', {
@@ -55,40 +59,65 @@ const WalletPanel = ({ onOpenCreateModal }) => {
       >
         <Card className="custom-card mb-5 border-0 premium-header text-white shadow-lg">
           <Card.Body className="p-4 p-md-5">
-            <div className="d-flex justify-content-between align-items-start mb-4">
-              <div>
-                <span className="glass-pill mb-2 d-inline-block">Total Net Worth</span>
-                <div className="balance-amount fw-bold mt-2">
-                  <span className="opacity-50 me-2" style={{ fontSize: '0.5em' }}>BDT</span>
-                  {globalStats.totalBalance.toLocaleString('en-BD')}
+            {/* Real vs Debt Split - Top focus */}
+            <Row className="g-3 mb-4">
+              <Col xs={6}>
+                <div className="p-3 rounded-4 h-100 position-relative overflow-hidden" style={{ background: 'rgba(72, 187, 120, 0.15)', border: '1px solid rgba(72, 187, 120, 0.25)' }}>
+                  <div className="position-relative z-1">
+                    <div className="text-success small fw-bold mb-1 d-flex align-items-center gap-1">
+                      <FaCoins /> Real Balance
+                    </div>
+                    <h4 className="fw-bold mb-0 text-white">{formatCurrency(globalStats.totalRealBalance)}</h4>
+                    <div className="mt-1 small text-white-50" style={{ fontSize: '0.75em' }}>Liquid Cash</div>
+                  </div>
                 </div>
-              </div>
-              <div className="text-end d-none d-md-block">
-                <div className="opacity-75 small">Monthly Spend Health</div>
-                <Badge bg={globalStats.totalRemaining < 0 ? 'danger' : 'success'} className="mt-1 rounded-pill">
-                  {globalStats.totalRemaining < 0 ? 'Over Budget' : 'Stable'}
-                </Badge>
+              </Col>
+              <Col xs={6}>
+                <div className="p-3 rounded-4 h-100 position-relative overflow-hidden" style={{ background: 'rgba(245, 101, 101, 0.15)', border: '1px solid rgba(245, 101, 101, 0.25)' }}>
+                   <div className="position-relative z-1">
+                    <div className="text-danger small fw-bold mb-1 d-flex align-items-center gap-1">
+                      <FaArrowDown /> Current Debt
+                    </div>
+                    <h4 className="fw-bold mb-0 text-white">{formatCurrency(globalStats.totalDebt)}</h4>
+                    <div className="mt-1 small text-white-50" style={{ fontSize: '0.75em' }}>Outstanding</div>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+
+            {/* Net Worth - Calculated Result */}
+            <div className="text-center mb-4 p-3 rounded-4" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <span className="glass-pill mb-1 d-inline-block px-3" style={{ fontSize: '0.7rem' }}>Total Net Worth</span>
+              <div className="fw-bold mt-1" style={{ fontSize: '1.75rem', letterSpacing: '-0.5px' }}>
+                <span className="opacity-50 me-2" style={{ fontSize: '0.5em' }}>BDT</span>
+                {globalStats.totalBalance.toLocaleString('en-BD')}
               </div>
             </div>
 
-            {/* Distribution Bar */}
+            {/* Asset Distribution Bar */}
             <div className="mb-4">
               <div className="d-flex justify-content-between small mb-2 opacity-75">
-                <span>Wallet Distribution</span>
-                <span>{wallets.length} active wallets</span>
+                <span>Asset Distribution</span>
+                <span>{wallets.filter(w => w.type !== 'liability').length} accounts</span>
               </div>
               <div className="distribution-bar">
-                {wallets.map((w, index) => {
-                  const colors = ['#ffffff', '#ffd700', '#48bb78', '#f56565', '#ed64a6', '#9f7aea'];
-                  const width = (w.balance / (globalStats.totalBalance || 1)) * 100;
+                {wallets.filter(w => w.type !== 'liability').map((w, index) => {
+                  const colors = ['#48bb78', '#38b2ac', '#4299e1', '#667eea', '#9f7aea'];
+                  // Use totalRealBalance as denominator for assets
+                  const width = (w.balance / (globalStats.totalRealBalance || 1)) * 100;
+                  // Cap width at 100% just in case
+                  const safeWidth = Math.min(width, 100);
+                  
+                  if (w.balance <= 0) return null;
+
                   return (
                     <div 
                       key={w.id} 
                       className="distribution-segment" 
                       style={{ 
-                        width: `${width}%`, 
+                        width: `${safeWidth}%`, 
                         backgroundColor: colors[index % colors.length],
-                        opacity: 0.8
+                        opacity: 0.9
                       }} 
                       title={`${w.name}: ${w.balance}`}
                     />
@@ -98,16 +127,15 @@ const WalletPanel = ({ onOpenCreateModal }) => {
             </div>
 
             <Row className="g-3">
-              <Col xs={6} md={4}>
-                <div className="p-3 rounded-4" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                  <div className="opacity-75 small mb-1">Total Spent</div>
-                  <h4 className="fw-bold mb-0">{formatCurrency(globalStats.totalSpent)}</h4>
-                </div>
-              </Col>
-              <Col xs={6} md={4}>
-                <div className="p-3 rounded-4" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                  <div className="opacity-75 small mb-1">Remaining</div>
-                  <h4 className="fw-bold mb-0">{formatCurrency(globalStats.totalRemaining)}</h4>
+              <Col xs={12}>
+                <div className="p-3 rounded-4 d-flex justify-content-between align-items-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <div>
+                    <div className="opacity-75 small mb-1">Total Spent This Month</div>
+                    <h5 className="fw-bold mb-0">{formatCurrency(globalStats.totalSpent)}</h5>
+                  </div>
+                   <Badge bg={globalStats.totalBalance < 0 ? 'danger' : 'success'} className="rounded-pill px-3 py-2">
+                      {globalStats.totalBalance < 0 ? 'In Debt' : 'Solvent'}
+                   </Badge>
                 </div>
               </Col>
             </Row>
@@ -139,6 +167,8 @@ const WalletPanel = ({ onOpenCreateModal }) => {
               animate="visible"
               variants={cardVariants}
               whileHover={{ y: -5 }}
+              onClick={() => setSelectedWallet(wallet)}
+              style={{ cursor: 'pointer' }}
             >
               <Card className="custom-card h-100 position-relative">
                 <Card.Body className="p-4">
@@ -206,7 +236,7 @@ const WalletPanel = ({ onOpenCreateModal }) => {
                       variant="outline-primary" 
                       size="sm" 
                       className="w-100 mt-3 rounded-pill"
-                      onClick={() => setShowTransferModal(true)}
+                      onClick={(e) => { e.stopPropagation(); setShowTransferModal(true); }}
                     >
                       <FaExchangeAlt className="me-2" /> Settle Bill
                     </Button>
@@ -246,6 +276,59 @@ const WalletPanel = ({ onOpenCreateModal }) => {
         show={showTransferModal}
         onHide={() => setShowTransferModal(false)}
       />
+
+      {/* Wallet Details Modal */}
+      <Modal 
+        show={!!selectedWallet} 
+        onHide={() => setSelectedWallet(null)}
+        centered
+        fullscreen="md-down"
+        size="xl"
+        contentClassName={isDarkMode ? 'bg-dark text-white' : ''}
+      >
+        <Modal.Header closeButton className={isDarkMode ? 'border-secondary' : ''}>
+          <Modal.Title className="d-flex align-items-center gap-2">
+            <FaWallet className="text-primary" />
+            <span className="fw-bold">{selectedWallet?.name}</span>
+            <Badge bg={selectedWallet?.type === 'liability' ? 'warning' : 'success'} className="ms-2 rounded-pill" style={{ fontSize: '0.7rem' }}>
+              {selectedWallet?.type === 'liability' ? 'Liability' : 'Asset'}
+            </Badge>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className={isDarkMode ? 'bg-dark' : 'bg-light'}>
+          {selectedWallet && (
+             <div className="container-fluid px-0">
+               <Row className="mb-4">
+                 <Col md={6} xl={4} className="mb-3 mb-md-0">
+                    <Card className={`h-100 border-0 shadow-sm ${isDarkMode ? 'bg-secondary text-white' : 'bg-white'}`}>
+                      <Card.Body>
+                        <small className="text-uppercase fw-bold opacity-75">Current Balance</small>
+                        <h2 className="fw-bold my-2 text-primary">{formatCurrency(selectedWallet.balance)}</h2>
+                        <div className="d-flex justify-content-between small opacity-75">
+                           <span>Start: {formatCurrency(Number(selectedWallet.balance) + Number(selectedWallet.spent || 0))}</span>
+                           <span>Used: {formatCurrency(selectedWallet.spent || 0)}</span>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                 </Col>
+                 <Col md={6} xl={8}>
+                    <div className="d-flex gap-2 h-100 align-items-center flex-wrap">
+                      <Button variant="success" className="flex-grow-1 h-100 rounded-4 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2" onClick={() => setQuickDepositWallet(selectedWallet)}>
+                         <FaPlusCircle /> Add Funds
+                      </Button>
+                      <Button variant="primary" className="flex-grow-1 h-100 rounded-4 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2" onClick={() => setShowTransferModal(true)}>
+                         <FaExchangeAlt /> Transfer
+                      </Button>
+                    </div>
+                 </Col>
+               </Row>
+               
+               <h5 className="fw-bold mb-3 opacity-75"><FaHistory className="me-2" /> Activity History</h5>
+               <TransactionHistory walletId={selectedWallet.id} />
+             </div>
+          )}
+        </Modal.Body>
+      </Modal>
     </motion.div>
   );
 };

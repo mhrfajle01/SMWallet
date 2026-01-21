@@ -17,6 +17,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
   
   const [formData, setFormData] = useState({
     date: '',
+    time: '',
     item: '',
     amount: '',
     walletId: '',
@@ -35,6 +36,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
       setType(initialType);
       setFormData({
         date: transaction.date || '',
+        time: transaction.time || '',
         item: transaction.item || transaction.label || '', // Income uses 'label' or 'source' sometimes
         amount: transaction.amount || '',
         walletId: transaction.walletId || '',
@@ -71,6 +73,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
         } else if (type === 'income') {
           await addIncome({ 
             date: formData.date,
+            time: formData.time,
             source: formData.source || formData.item, // Use item input as source if switched
             amount: formData.amount,
             walletId: formData.walletId,
@@ -89,6 +92,7 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
              { walletId: transaction.walletId, amount: transaction.amount }, 
              { 
                 date: formData.date,
+                time: formData.time,
                 source: formData.source || formData.item,
                 amount: formData.amount,
                 walletId: formData.walletId,
@@ -200,6 +204,20 @@ const EditTransactionModal = ({ show, onHide, transaction }) => {
                   type="date" 
                   value={formData.date}
                   onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  required
+                  className="py-2"
+                />
+              </Form.Group>
+            </Col>
+
+            <Col xs={6}>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted uppercase">Time</Form.Label>
+                <Form.Control 
+                  type="text" 
+                  value={formData.time}
+                  onChange={(e) => setFormData({...formData, time: e.target.value})}
+                  placeholder="e.g. 10:30 AM"
                   required
                   className="py-2"
                 />

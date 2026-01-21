@@ -34,7 +34,9 @@ export const AppProvider = ({ children }) => {
 
   // Global Stats
   const [globalStats, setGlobalStats] = useState({
-    totalBalance: 0,
+    totalBalance: 0,     // Net Worth
+    totalRealBalance: 0, // Actual Liquid Cash
+    totalDebt: 0,        // Money Owed
     totalSpent: 0,
     totalRemaining: 0
   });
@@ -192,27 +194,44 @@ export const AppProvider = ({ children }) => {
       setLoading(false);
       return;
     }
-    
-    // Total assets (Normal wallets)
-    const assets = wallets
-      .filter(w => w.type !== 'liability')
-      .reduce((acc, curr) => acc + Number(curr.balance), 0);
-    
-    // Total liability "limit" or starting balances (usually 0 for postpaid)
-    const liabilityBalance = wallets
-      .filter(w => w.type === 'liability')
-      .reduce((acc, curr) => acc + Number(curr.balance), 0);
+
+    // 1. Calculate spending per wallet
+    const walletExpenses = {};
+    meals.forEach(m => walletExpenses[m.walletId] = (walletExpenses[m.walletId] || 0) + Number(m.amount));
+    purchases.forEach(p => walletExpenses[p.walletId] = (walletExpenses[p.walletId] || 0) + Number(p.amount));
+
+    // 2. Calculate Totals
+    let totalRealBalance = 0;
+    let totalDebt = 0;
+
+    wallets.forEach(w => {
+      const spent = walletExpenses[w.id] || 0;
+      const balance = Number(w.balance);
+
+      if (w.type === 'liability') {
+        // For liability: Debt = Spent - StartingBalance (assuming StartingBalance is 0 or negative credit)
+        // Using existing logic: remaining = spent - balance
+        const currentDebt = spent - balance;
+        totalDebt += currentDebt;
+      } else {
+        // For assets: Real Balance = Balance - Spent
+        const currentBalance = balance - spent;
+        totalRealBalance += currentBalance;
+      }
+    });
 
     const totalSpent = meals.reduce((acc, curr) => acc + Number(curr.amount), 0) + 
                        purchases.reduce((acc, curr) => acc + Number(curr.amount), 0);
     
-    // Net balance is total initial balances across all wallets minus everything spent
-    const totalInitialBalance = assets + liabilityBalance;
+    // Net Worth = Real Money - Debt
+    const totalNetWorth = totalRealBalance - totalDebt;
 
     setGlobalStats({
-      totalBalance: totalInitialBalance, 
+      totalBalance: totalNetWorth,
+      totalRealBalance,
+      totalDebt, 
       totalSpent,
-      totalRemaining: totalInitialBalance - totalSpent 
+      totalRemaining: totalNetWorth // Keeping for compatibility, effectively same as Net Worth
     });
     setLoading(false);
   }, [wallets, meals, purchases, incomes, user]);
