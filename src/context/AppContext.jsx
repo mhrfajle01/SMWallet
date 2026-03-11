@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
+import { useProductivity } from './ProductivityContext';
 import { 
   collection, 
   onSnapshot, 
@@ -22,6 +23,8 @@ export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
   const { user } = useAuth();
+  const productivity = useProductivity(); // Get productivity context
+  
   const [wallets, setWallets] = useState([]);
   const [meals, setMeals] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -39,7 +42,12 @@ export const AppProvider = ({ children }) => {
     totalRealBalance: 0,
     totalDebt: 0,
     totalSpent: 0,
-    totalRemaining: 0
+    totalRemaining: 0,
+    comparison: {
+        lastMonthSpent: 0,
+        spendChange: 0,
+        savingsChange: 0
+    }
   });
 
   // Initialization & Categories
@@ -49,29 +57,30 @@ export const AppProvider = ({ children }) => {
         return;
     }
     
-    const catQuery = query(collection(db, 'categories'), or(where('uid', '==', user.uid), where('userId', '==', user.uid)));
+    const catQuery = query(collection(db, 'categories'), where('uid', '==', user.uid));
     const unsubCats = onSnapshot(catQuery, async (snapshot) => {
-      if (snapshot.empty) {
-        const defaults = [
-          { id: 'Food', label: 'Food & Meals', icon: '🍲', color: '#3b82f6', isDefault: true },
-          { id: 'Groceries', label: 'Groceries', icon: '🛒', color: '#10b981', isDefault: true },
-          { id: 'Travel', label: 'Travel & Transport', icon: '🚌', color: '#f59e0b', isDefault: true },
-          { id: 'Medicine', label: 'Health & Medicine', icon: '💊', color: '#ef4444', isDefault: true },
-          { id: 'Stationery', label: 'Education & Stationery', icon: '📚', color: '#8b5cf6', isDefault: true },
-          { id: 'Other', label: 'Miscellaneous', icon: '📦', color: '#64748b', isDefault: true }
-        ];
-        for (const cat of defaults) {
-          await setDoc(doc(db, 'categories', `${user.uid}_${cat.id}`), {
-            ...cat, uid: user.uid, createdAt: serverTimestamp()
-          }).catch(console.error);
-        }
-      } else {
-        setCategories(snapshot.docs.map(doc => ({ dbId: doc.id, ...doc.data() })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)));
-      }
+      try {
+        if (snapshot.empty) {
+            const defaults = [
+              { id: 'Food', label: 'Food & Meals', icon: '🍲', color: '#3b82f6', isDefault: true },
+              { id: 'Groceries', label: 'Groceries', icon: '🛒', color: '#10b981', isDefault: true },
+              { id: 'Travel', label: 'Travel & Transport', icon: '🚌', color: '#f59e0b', isDefault: true },
+              { id: 'Medicine', label: 'Health & Medicine', icon: '💊', color: '#ef4444', isDefault: true },
+              { id: 'Stationery', label: 'Education & Stationery', icon: '📚', color: '#8b5cf6', isDefault: true },
+              { id: 'Other', label: 'Miscellaneous', icon: '📦', color: '#64748b', isDefault: true }
+            ];
+            for (const cat of defaults) {
+              await setDoc(doc(db, 'categories', `${user.uid}_${cat.id}`), {
+                ...cat, uid: user.uid, userId: user.uid, createdAt: serverTimestamp()
+              });
+            }
+          } else {
+            setCategories(snapshot.docs.map(doc => ({ dbId: doc.id, ...doc.data() })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)));
+          }
+      } catch (e) { console.error("Categories fetch error:", e); }
     });
 
-    // Main Data Subscriptions
-    const baseQuery = (coll) => query(collection(db, coll), or(where('uid', '==', user.uid), where('userId', '==', user.uid)));
+    const baseQuery = (coll) => query(collection(db, coll), where('uid', '==', user.uid));
 
     const unsubWallets = onSnapshot(baseQuery('wallets'), (s) => 
       setWallets(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
@@ -84,7 +93,7 @@ export const AppProvider = ({ children }) => {
     const unsubPurchases = onSnapshot(baseQuery('purchases'), (s) => setPurchases(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.date) - new Date(a.date))));
     const unsubDeposits = onSnapshot(baseQuery('goal_deposits'), (s) => setGoalDeposits(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
 
-    const timeout = setTimeout(() => setLoading(false), 1500); // Max wait time for initial load
+    const timeout = setTimeout(() => setLoading(false), 1500);
 
     return () => { 
         unsubCats(); unsubWallets(); unsubBudgets(); unsubIncomes(); unsubTransfers(); 
@@ -109,10 +118,33 @@ export const AppProvider = ({ children }) => {
       else totalRealBalance += (balance - spent);
     });
 
-    const totalSpent = meals.reduce((acc, curr) => acc + Number(curr.amount || 0), 0) + purchases.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+    const now = new Date();
+    const currentMonth = now.toISOString().substring(0, 7);
+    const lastMonthDate = new Date(now.setMonth(now.getMonth() - 1));
+    const lastMonth = lastMonthDate.toISOString().substring(0, 7);
+
+    const currentSpent = meals.filter(m => m.month === currentMonth).reduce((a,c) => a + Number(c.amount || 0), 0) + 
+                         purchases.filter(p => p.month === currentMonth).reduce((a,c) => a + Number(c.amount || 0), 0);
+    
+    const lastMonthSpent = meals.filter(m => m.month === lastMonth).reduce((a,c) => a + Number(c.amount || 0), 0) + 
+                           purchases.filter(p => p.month === lastMonth).reduce((a,c) => a + Number(c.amount || 0), 0);
+
+    const spendChange = lastMonthSpent > 0 ? ((currentSpent - lastMonthSpent) / lastMonthSpent) * 100 : 0;
+
     const totalNetWorth = totalRealBalance - totalDebt;
 
-    setGlobalStats({ totalBalance: totalNetWorth, totalRealBalance, totalDebt, totalSpent, totalRemaining: totalNetWorth });
+    setGlobalStats({ 
+        totalBalance: totalNetWorth, 
+        totalRealBalance, 
+        totalDebt, 
+        totalSpent: currentSpent, 
+        totalRemaining: totalNetWorth,
+        comparison: {
+            lastMonthSpent,
+            spendChange,
+            savingsChange: 0 
+        }
+    });
   }, [wallets, meals, purchases, user]);
 
   const calculatedWallets = useMemo(() => {

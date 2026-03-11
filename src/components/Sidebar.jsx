@@ -7,6 +7,7 @@ import {
   FaPiggyBank, FaHistory, FaMapMarkedAlt
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import FloatingBalance from './FloatingBalance';
 
 const Sidebar = ({ onAddTransaction }) => {
   const { logout } = useAuth();
@@ -15,7 +16,7 @@ const Sidebar = ({ onAddTransaction }) => {
   const financeItems = [
     { path: '/wallets', icon: FaWallet, label: 'My Wallets' },
     { path: '/history', icon: FaHistory, label: 'Transactions' },
-    { path: '/planner', icon: FaMapMarkedAlt, label: 'Smart Planner' }, // Moved to main
+    { path: '/planner', icon: FaMapMarkedAlt, label: 'Smart Planner' },
     { path: '/goals', icon: FaPiggyBank, label: 'Savings Goals' },
     { path: '/budget', icon: FaChartPie, label: 'Budget Plan' },
     { path: '/reports', icon: FaFileAlt, label: 'Reports' },
@@ -38,14 +39,16 @@ const Sidebar = ({ onAddTransaction }) => {
       <div className="flex-grow-1 overflow-auto px-3">
         <Button 
           variant="primary" 
-          className="w-100 rounded-pill mb-4 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+          className="w-100 rounded-pill mb-3 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
           onClick={onAddTransaction}
         >
           <FaPlus /> New Entry
         </Button>
 
+        <FloatingBalance isMobile={false} />
+
         <div className="mb-4">
-          <small className="text-uppercase fw-bold text-muted opacity-50 px-3 mb-2 d-block letter-spacing-1">Finance</small>
+          <small className="text-uppercase fw-bold text-muted opacity-50 px-3 mb-2 d-block letter-spacing-1" style={{ fontSize: '0.7rem' }}>Finance</small>
           <Nav className="flex-column gap-1">
             {financeItems.map((item) => (
               <NavLink 
@@ -61,7 +64,7 @@ const Sidebar = ({ onAddTransaction }) => {
         </div>
 
         <div className="mb-4">
-          <small className="text-uppercase fw-bold text-muted opacity-50 px-3 mb-2 d-block letter-spacing-1">Productivity</small>
+          <small className="text-uppercase fw-bold text-muted opacity-50 px-3 mb-2 d-block letter-spacing-1" style={{ fontSize: '0.7rem' }}>Productivity</small>
           <Nav className="flex-column gap-1">
             {productivityItems.map((item) => (
               <NavLink 

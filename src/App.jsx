@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Navbar, Button, Nav } from 'react-bootstrap';
+import { Container, Navbar, Button, Nav, Badge } from 'react-bootstrap';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { ProductivityProvider } from './context/ProductivityContext';
@@ -14,7 +14,7 @@ import BudgetPlanner from './components/BudgetPlanner';
 import ReportPanel from './components/ReportPanel';
 import SettingsPanel from './components/SettingsPanel';
 import DashboardView from './components/DashboardView';
-import SmartPlanner from './components/SmartPlanner'; // New location
+import SmartPlanner from './components/SmartPlanner';
 
 // Productivity Components
 import HabitTracker from './components/productivity/HabitTracker';
@@ -30,6 +30,7 @@ import Sidebar from './components/Sidebar';
 import AuthView from './components/AuthView';
 import AddTransactionModal from './components/AddTransactionModal';
 import PageLoader from './components/PageLoader';
+import FloatingBalance from './components/FloatingBalance';
 import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaList } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,23 +65,23 @@ const MobileHeader = () => {
 
   return (
     <Navbar className="bg-white border-bottom shadow-sm d-lg-none sticky-top" style={{ height: 'var(--header-height)', background: 'var(--nav-bg)', borderColor: 'var(--border-color)' }}>
-      <Container>
-        <Navbar.Brand 
-          className="d-flex align-items-center fw-bold text-primary" 
-          onClick={() => navigate('/wallets')} 
-          style={{ cursor: 'pointer' }}
-        >
-          <div className={`bg-opacity-10 rounded-circle p-2 me-2 ${isProductivity ? 'bg-indigo text-indigo' : 'bg-primary text-primary'}`} style={{ color: isProductivity ? '#6366f1' : '' }}>
-            {isProductivity ? <FaList size={20} /> : <FaWallet size={20} />}
-          </div>
-          {isProductivity ? 'Tools' : 'SMWallet'}
-        </Navbar.Brand>
-        <div className="d-flex align-items-center gap-3">
-          <Button variant="link" onClick={toggleTheme} className="text-secondary p-0">
-            {isDarkMode ? <FaMoon size={20} className="text-warning" /> : <FaSun size={20} className="text-warning" />}
+      <Container className="px-2">
+        <div className="d-flex align-items-center flex-grow-1 overflow-hidden">
+            <Navbar.Brand 
+            className="d-flex align-items-center fw-bold text-primary mb-0 me-2" 
+            onClick={() => navigate('/wallets')} 
+            style={{ cursor: 'pointer', fontSize: '1.1rem' }}
+            >
+            {isProductivity ? 'Tools' : 'SM'}
+            </Navbar.Brand>
+            <FloatingBalance />
+        </div>
+        <div className="d-flex align-items-center gap-2 ms-2">
+          <Button variant="link" onClick={toggleTheme} className="text-secondary p-1">
+            {isDarkMode ? <FaMoon size={18} className="text-warning" /> : <FaSun size={18} className="text-warning" />}
           </Button>
-          <Button variant="link" onClick={logout} className="text-danger p-0">
-            <FaSignOutAlt size={20} />
+          <Button variant="link" onClick={logout} className="text-danger p-1">
+            <FaSignOutAlt size={18} />
           </Button>
         </div>
       </Container>

@@ -30,7 +30,7 @@ export const ProductivityProvider = ({ children }) => {
 
     setLoading(true);
 
-    const baseQuery = (coll) => query(collection(db, coll), or(where('uid', '==', user.uid), where('userId', '==', user.uid)));
+    const baseQuery = (coll) => query(collection(db, coll), where('uid', '==', user.uid));
 
     const unsubHabits = onSnapshot(baseQuery('habits'), (s) => 
       setHabits(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -107,7 +107,7 @@ export const ProductivityProvider = ({ children }) => {
       uid: user.uid,
       completed: false,
       itemType: 'buy', 
-      bookingStatus: 'planned', // 'planned', 'booked', 'paid'
+      bookingStatus: 'planned',
       ...itemData,
       estimatedPrice: Number(itemData.estimatedPrice || 0),
       createdAt: serverTimestamp()

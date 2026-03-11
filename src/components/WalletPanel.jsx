@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Card, Row, Col, Button, Badge, Modal } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
-import { FaWallet, FaTrash, FaArrowUp, FaArrowDown, FaCoins, FaPlusCircle, FaExchangeAlt, FaHistory } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
+import { FaWallet, FaTrash, FaArrowUp, FaArrowDown, FaCoins, FaPlusCircle, FaExchangeAlt, FaHistory, FaThumbtack } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
 import QuickDepositModal from './QuickDepositModal';
@@ -11,6 +12,7 @@ import { useTheme } from '../context/ThemeContext';
 
 const WalletPanel = ({ onOpenCreateModal }) => {
   const { globalStats, wallets, deleteWallet } = useApp();
+  const { userData, updateUserSettings } = useAuth();
   const { isDarkMode } = useTheme();
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [quickDepositWallet, setQuickDepositWallet] = useState(null);
@@ -27,6 +29,17 @@ const WalletPanel = ({ onOpenCreateModal }) => {
   const handleDeleteClick = (id, name, e) => {
     e.stopPropagation();
     setConfirmDelete({ id, name });
+  };
+
+  const handlePinWallet = async (walletId, e) => {
+    e.stopPropagation();
+    try {
+      // If clicking the same wallet, unpin it
+      const newPinnedId = userData?.pinnedWalletId === walletId ? '' : walletId;
+      await updateUserSettings({ pinnedWalletId: newPinnedId });
+    } catch (error) {
+      console.error("Failed to pin wallet:", error);
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -159,7 +172,9 @@ const WalletPanel = ({ onOpenCreateModal }) => {
       </div>
 
       <Row>
-        {wallets.map((wallet, index) => (
+        {wallets.map((wallet, index) => {
+          const isPinned = userData?.pinnedWalletId === wallet.id;
+          return (
           <Col key={wallet.id} md={6} xl={4} className="mb-4">
             <motion.div
               custom={index}
@@ -170,7 +185,7 @@ const WalletPanel = ({ onOpenCreateModal }) => {
               onClick={() => setSelectedWallet(wallet)}
               style={{ cursor: 'pointer' }}
             >
-              <Card className="custom-card h-100 position-relative">
+              <Card className={`custom-card h-100 position-relative ${isPinned ? 'border-primary border-2 shadow-sm' : ''}`}>
                 <Card.Body className="p-4">
                   <div className="d-flex justify-content-between align-items-start mb-4">
                     <div className="d-flex align-items-center">
@@ -178,13 +193,25 @@ const WalletPanel = ({ onOpenCreateModal }) => {
                          <FaWallet size={24} />
                       </div>
                       <div>
-                        <h5 className="fw-bold mb-0">{wallet.name}</h5>
+                        <div className="d-flex align-items-center gap-2">
+                           <h5 className="fw-bold mb-0">{wallet.name}</h5>
+                           {isPinned && <FaThumbtack className="text-primary small" size={14} />}
+                        </div>
                         <small className="text-muted">
                           Created: {wallet.createdAt ? new Date(wallet.createdAt.toDate()).toLocaleDateString() : 'Just now'}
                         </small>
                       </div>
                     </div>
-                    <div className="d-flex gap-2">
+                    <div className="d-flex gap-1">
+                      <Button 
+                        variant={isPinned ? "primary" : "light"}
+                        className={`${isPinned ? 'text-white' : 'text-primary'} rounded-circle p-0 d-flex align-items-center justify-content-center`} 
+                        style={{ width: '32px', height: '32px' }}
+                        title={isPinned ? "Unpin Wallet" : "Pin as Primary"}
+                        onClick={(e) => handlePinWallet(wallet.id, e)}
+                      >
+                        <FaThumbtack size={14} className={isPinned ? '' : 'opacity-50'} />
+                      </Button>
                       <Button 
                         variant="light" 
                         className="text-success rounded-circle p-0 d-flex align-items-center justify-content-center" 
@@ -255,7 +282,8 @@ const WalletPanel = ({ onOpenCreateModal }) => {
               </Card>
             </motion.div>
           </Col>
-        ))}
+          );
+        })}
       </Row>
 
       <ConfirmModal 

@@ -1,0 +1,80 @@
+/* Dashboard Professional UI Styles */
+
+.dash-container {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.dash-card {
+    background: var(--nav-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 1.5rem !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
+    overflow: hidden;
+}
+
+.pulse-header {
+    background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+    color: white;
+    border-radius: 1.5rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.burn-rate-container {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.burn-rate-progress {
+    height: 100%;
+    background: #fff;
+    border-radius: 10px;
+    transition: width 1s ease-in-out;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-uppercase: true;
+    letter-spacing: 0.5px;
+}
+
+/* Donut Chart Simulation */
+.donut-segment {
+    transition: stroke-dashoffset 0.35s;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* Upcoming Feed */
+.feed-item {
+    border-left: 3px solid var(--prod-accent);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    background: rgba(99, 102, 241, 0.03);
+    border-radius: 0 0.75rem 0.75rem 0;
+}
+
+.feed-item.high { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.03); }
+.feed-item.money { border-left-color: #10b981; background: rgba(16, 185, 129, 0.03); }
+
+/* Glassmorphism */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1rem;
+}
+
+[data-theme='dark'] .stat-value { color: #f8fafc; }
+[data-theme='dark'] .dash-card { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important; }

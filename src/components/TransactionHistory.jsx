@@ -38,12 +38,13 @@ const TransactionHistory = ({ walletId = null }) => {
   const allTransactions = useMemo(() => {
     try {
       const combined = [
-        ...meals.map(m => ({ ...m, type: 'expense', category: 'Meal', icon: FaUtensils, label: m.item || 'Unnamed Meal', rawType: 'meal' })),
-        ...purchases.map(p => ({ ...p, type: 'expense', category: p.category || 'Other', icon: FaShoppingCart, label: p.item || 'Unnamed Purchase', rawType: 'purchase' })),
-        ...incomes.map(i => ({ ...i, type: 'income', category: 'Income', icon: FaArrowDown, label: i.source || 'Income', rawType: 'income' })),
-        ...transfers.map(t => ({ ...t, type: 'transfer', category: 'Transfer', icon: FaExchangeAlt, label: `${t.sourceName || 'Wallet'} ➔ ${t.destName || 'Wallet'}`, rawType: 'transfer' })),
-        ...goalDeposits.map(g => {
-          const goalName = g.goalName || goals.find(goal => goal.id === g.goalId)?.name || 'Savings Goal';
+        ...(meals || []).map(m => ({ ...m, type: 'expense', category: 'Meal', icon: FaUtensils, label: m.item || 'Unnamed Meal', rawType: 'meal' })),
+        ...(purchases || []).map(p => ({ ...p, type: 'expense', category: p.category || 'Other', icon: FaShoppingCart, label: p.item || 'Unnamed Purchase', rawType: 'purchase' })),
+        ...(incomes || []).map(i => ({ ...i, type: 'income', category: 'Income', icon: FaArrowDown, label: i.source || 'Income', rawType: 'income' })),
+        ...(transfers || []).map(t => ({ ...t, type: 'transfer', category: 'Transfer', icon: FaExchangeAlt, label: `${t.sourceName || 'Wallet'} ➔ ${t.destName || 'Wallet'}`, rawType: 'transfer' })),
+        ...(goalDeposits || []).map(g => {
+          const goal = (goals || []).find(goal => goal.id === g.goalId);
+          const goalName = g.goalName || goal?.name || 'Savings Goal';
           return { ...g, type: 'transfer', category: 'Savings', icon: FaExchangeAlt, label: `Deposit to ${goalName}`, rawType: 'goal_deposit' };
         })
       ];
@@ -56,6 +57,7 @@ const TransactionHistory = ({ walletId = null }) => {
 
   const filteredTransactions = useMemo(() => {
     let result = allTransactions.filter(t => {
+      if (!t) return false;
       // Wallet Filter
       if (walletId) {
          // Check direct walletId match (most items)
@@ -68,7 +70,7 @@ const TransactionHistory = ({ walletId = null }) => {
 
       const label = (t.label || '').toLowerCase();
       const category = (t.category || '').toLowerCase();
-      const search = searchTerm.toLowerCase();
+      const search = (searchTerm || '').toLowerCase();
       
       const matchesType = filterType === 'all' || t.type === filterType; 
       
@@ -87,34 +89,35 @@ const TransactionHistory = ({ walletId = null }) => {
     if (viewMode === 'list') {
         result.sort((a, b) => {
             const getTimestamp = (t) => {
+                if (!t) return 0;
                 // Use full user date+time for sorting
                 if (t.date) {
                     const d = new Date(t.date);
                     // If time exists, parse it, otherwise default to midnight
-                    if (t.time) {
-                        const [hours, minutes] = t.time.match(/(\d+):(\d+)\s*(AM|PM)/i) ? 
-                            (() => {
-                                const match = t.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
-                                let h = parseInt(match[1]);
-                                const m = parseInt(match[2]);
-                                const ampm = match[3].toUpperCase();
-                                if (ampm === 'PM' && h < 12) h += 12;
-                                if (ampm === 'AM' && h === 12) h = 0;
-                                return [h, m];
-                            })() : [0, 0];
-                        d.setHours(hours, minutes, 0, 0);
+                    if (t.time && typeof t.time === 'string') {
+                        const match = t.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                        if (match) {
+                            let h = parseInt(match[1]);
+                            const m = parseInt(match[2]);
+                            const ampm = match[3].toUpperCase();
+                            if (ampm === 'PM' && h < 12) h += 12;
+                            if (ampm === 'AM' && h === 12) h = 0;
+                            d.setHours(h, m, 0, 0);
+                        }
                     }
                     return isNaN(d.getTime()) ? 0 : d.getTime();
                 }
                 // Fallback
-                if (t.createdAt?.toDate) return t.createdAt.toDate().getTime();
+                if (t.createdAt?.toDate) {
+                    try { return t.createdAt.toDate().getTime(); } catch(e) { return 0; }
+                }
                 return 0;
             };
             
             const timeA = getTimestamp(a);
             const timeB = getTimestamp(b);
-            const amountA = Number(a.amount);
-            const amountB = Number(b.amount);
+            const amountA = Number(a.amount || 0);
+            const amountB = Number(b.amount || 0);
 
             if (sortOrder === 'date-desc') return timeB - timeA;
             if (sortOrder === 'date-asc') return timeA - timeB;

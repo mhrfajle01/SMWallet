@@ -21,10 +21,12 @@ const FinancialCalendar = ({ meals, purchases, incomes }) => {
   // Merge data for the month
   const dailyData = useMemo(() => {
     const data = {};
-    const prefix = currentDate.toISOString().slice(0, 7); // YYYY-MM
+    const y = currentDate.getFullYear();
+    const m = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+    const prefix = `${y}-${m}`; // YYYY-MM (Local Time)
 
     const process = (items, type) => {
-        items.forEach(item => {
+        (items || []).forEach(item => {
             const dateStr = item.date || item.createdAt?.toDate().toISOString().split('T')[0];
             if (dateStr && dateStr.startsWith(prefix)) {
                 const day = parseInt(dateStr.split('-')[2], 10);
