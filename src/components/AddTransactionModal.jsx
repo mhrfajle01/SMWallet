@@ -9,7 +9,7 @@ import { playSound } from '../utils/soundEffects';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaMagic, FaHistory, FaCheck, FaTimes, FaLightbulb } from 'react-icons/fa';
 
-const AddTransactionModal = ({ show, onHide }) => {
+const AddTransactionModal = ({ show, onHide, preFill }) => {
   const { wallets, addPurchase, addMeal, getSmartRecents, categories, meals, purchases } = useApp();
   const { isDarkMode } = useTheme();
   const [activeType, setActiveType] = useState('magic'); // 'magic', 'meal', 'purchase', 'income'
@@ -35,25 +35,27 @@ const AddTransactionModal = ({ show, onHide }) => {
       playSound('pop');
       setMagicInput('');
       setParsed({ amount: 0, item: '', valid: false });
-      setActiveType('magic');
+      
+      if (preFill) {
+        setActiveType('purchase');
+      } else {
+        setActiveType('magic');
+      }
 
       // --- Context-Aware Suggestions ---
       const hour = new Date().getHours();
       const day = new Date().getDate();
 
-      // 1. Time-Based Suggestion
       if (hour >= 6 && hour < 11) setSuggestion({ type: 'meal', label: 'Breakfast', icon: '🍳' });
       else if (hour >= 11 && hour < 15) setSuggestion({ type: 'meal', label: 'Lunch', icon: '🍔' });
       else if (hour >= 18 && hour < 22) setSuggestion({ type: 'meal', label: 'Dinner', icon: '🍽️' });
-      else setSuggestion(null); // Clear if no strong time signal
+      else setSuggestion(null);
 
-      // 2. Recurring Payment Logic (Mock: Rent 1st-5th)
       if (day >= 1 && day <= 5) {
-        // Only suggest if not recently paid (would need more complex check, keeping simple)
         setSuggestion({ type: 'purchase', label: 'Rent/Bills', icon: '🏠', autoFill: { item: 'Rent', category: 'Bills' } });
       }
     }
-  }, [show]);
+  }, [show, preFill]);
 
   // Magic Bar Parser Logic
   useEffect(() => {
@@ -112,7 +114,6 @@ const AddTransactionModal = ({ show, onHide }) => {
     const today = new Date().toISOString().split('T')[0];
     const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-    // Auto-category matching based on recents
     const match = smartRecents.find(r => r.label.toLowerCase() === parsed.item.toLowerCase());
     const category = match ? match.cat : 'Other';
 
@@ -130,8 +131,6 @@ const AddTransactionModal = ({ show, onHide }) => {
   const applySuggestion = () => {
     if (suggestion) {
        setActiveType(suggestion.type);
-       // In a fuller implementation, we would pre-fill the form inputs using Context or Props
-       // For now, we just switch the tab which is helpful enough
     }
   };
 
@@ -162,11 +161,7 @@ const AddTransactionModal = ({ show, onHide }) => {
 
       <Modal.Body className="px-3 px-md-4 pb-4 pt-0">
         {suggestion && activeType === 'magic' && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} 
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-3"
-          >
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
             <div 
               className="p-2 px-3 rounded-pill d-inline-flex align-items-center gap-2 bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25"
               style={{ cursor: 'pointer' }}
@@ -246,7 +241,7 @@ const AddTransactionModal = ({ show, onHide }) => {
         )}
 
         {activeType === 'meal' && <MealForm />}
-        {activeType === 'purchase' && <PurchaseForm />}
+        {activeType === 'purchase' && <PurchaseForm preFill={preFill} />}
         {activeType === 'income' && <IncomeForm />}
       </Modal.Body>
     </Modal>

@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc, serverTimestamp 
+  collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, or 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
-import confetti from 'canvas-confetti';
 import { playSound } from '../utils/soundEffects';
 
 const ProductivityContext = createContext();
@@ -18,202 +17,128 @@ export const ProductivityProvider = ({ children }) => {
   const [habitLogs, setHabitLogs] = useState([]);
   const [todos, setTodos] = useState([]);
   const [notes, setNotes] = useState([]);
-  const [gamifyData, setGamifyData] = useState({ points: 0, level: 1, badges: [], streak: 0, lastLogin: '' });
+  const [shoppingList, setShoppingList] = useState([]);
+  const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Gamification Constants
-  const LEVEL_THRESHOLDS = Array.from({ length: 11 }, (_, i) => i * 500); // 0, 500, 1000, 1500...
-  const BADGES = {
-    BRONZE: { name: 'Bronze', threshold: 500, icon: '🥉' },
-    SILVER: { name: 'Silver', threshold: 1500, icon: '🥈' },
-    GOLD:   { name: 'Gold',   threshold: 3000, icon: '🥇' },
-    PLATINUM: { name: 'Platinum', threshold: 5000, icon: '💎' },
-    STREAK_7: { name: 'On Fire', threshold: 0, special: true, icon: '🔥' }
-  };
 
   useEffect(() => {
     if (!user) {
-      setHabits([]); setHabitLogs([]); setTodos([]); setNotes([]); 
-      setGamifyData({ points: 0, level: 1, badges: [], streak: 0, lastLogin: '' });
+      setHabits([]); setHabitLogs([]); setTodos([]); setNotes([]); setShoppingList([]); setTrips([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    const qHabits = query(collection(db, 'habits'), where('userId', '==', user.uid));
-    const qHabitLogs = query(collection(db, 'habitLogs'), where('userId', '==', user.uid));
-    const qTodos = query(collection(db, 'todos'), where('userId', '==', user.uid));
-    const qNotes = query(collection(db, 'notes'), where('userId', '==', user.uid));
-    const docGamify = doc(db, 'gamify', user.uid);
+    const baseQuery = (coll) => query(collection(db, coll), or(where('uid', '==', user.uid), where('userId', '==', user.uid)));
 
-    const unsubHabits = onSnapshot(qHabits, (snapshot) => {
-      setHabits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    const unsubHabits = onSnapshot(baseQuery('habits'), (s) => 
+      setHabits(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-    const unsubHabitLogs = onSnapshot(qHabitLogs, (snapshot) => {
-      setHabitLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    const unsubHabitLogs = onSnapshot(baseQuery('habitLogs'), (s) => 
+      setHabitLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-    const unsubTodos = onSnapshot(qTodos, (snapshot) => {
-      setTodos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a,b) => b.createdAt - a.createdAt));
-    });
+    const unsubTodos = onSnapshot(baseQuery('todos'), (s) => 
+      setTodos(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
 
-    const unsubNotes = onSnapshot(qNotes, (snapshot) => {
-      setNotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a,b) => b.createdAt - a.createdAt));
-    });
+    const unsubNotes = onSnapshot(baseQuery('notes'), (s) => 
+      setNotes(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
 
-    const unsubGamify = onSnapshot(docGamify, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setGamifyData(data);
-        checkDailyLogin(data, docGamify);
-      } else {
-        // Initialize if not exists
-        const initData = { points: 0, level: 1, badges: [], streak: 1, lastLogin: new Date().toISOString().split('T')[0] };
-        setDoc(docGamify, initData);
-        setGamifyData(initData);
-      }
-    });
+    const unsubShopping = onSnapshot(baseQuery('shoppingList'), (s) => 
+      setShoppingList(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+
+    const unsubTrips = onSnapshot(baseQuery('trips'), (s) => 
+      setTrips(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
 
     setLoading(false);
-
-    return () => {
-      unsubHabits(); unsubHabitLogs(); unsubTodos(); unsubNotes(); unsubGamify();
-    };
+    return () => { unsubHabits(); unsubHabitLogs(); unsubTodos(); unsubNotes(); unsubShopping(); unsubTrips(); };
   }, [user]);
 
-  // --- Streak Logic ---
-  const checkDailyLogin = async (currentData, docRef) => {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    
-    if (currentData.lastLogin === today) return; // Already logged today
-
-    let newStreak = currentData.streak || 0;
-    
-    if (currentData.lastLogin === yesterdayStr) {
-        newStreak += 1; // Continuing streak
-    } else {
-        newStreak = 1; // Broken streak or first day
-    }
-
-    // Check Streak Badge
-    let newBadges = [...(currentData.badges || [])];
-    if (newStreak >= 7 && !newBadges.includes('On Fire')) {
-        newBadges.push('On Fire');
-        addPoints(100, '7 Day Streak!');
-    }
-
-    await updateDoc(docRef, {
-        lastLogin: today,
-        streak: newStreak,
-        badges: newBadges
-    });
-  };
-
-  // --- Actions ---
-
-  const addPoints = async (amount, reason) => {
-    if (!user) return;
-    
-    // Apply Multiplier based on streak
-    const multiplier = (gamifyData.streak || 0) >= 7 ? 2 : 1;
-    const finalAmount = amount * multiplier;
-
-    const newPoints = (gamifyData.points || 0) + finalAmount;
-    let newLevel = gamifyData.level || 1;
-    let newBadges = [...(gamifyData.badges || [])];
-    
-    // Check Level Up
-    if (newPoints >= LEVEL_THRESHOLDS[newLevel] && newLevel < 10) {
-      newLevel++;
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-      playSound('success'); 
-    }
-
-    // Check Badges
-    Object.values(BADGES).forEach(badge => {
-      if (!badge.special && newPoints >= badge.threshold && !newBadges.includes(badge.name)) {
-        newBadges.push(badge.name);
-      }
-    });
-
-    await updateDoc(doc(db, 'gamify', user.uid), {
-      points: newPoints,
-      level: newLevel,
-      badges: newBadges
-    });
-  };
-
   // Habits
-  const addHabit = async (title) => {
-    await addDoc(collection(db, 'habits'), {
-      userId: user.uid, title, createdAt: serverTimestamp()
-    });
-  };
-
-  const deleteHabit = async (id) => {
-    await deleteDoc(doc(db, 'habits', id));
-  };
-
+  const addHabit = async (title) => await addDoc(collection(db, 'habits'), { userId: user.uid, uid: user.uid, title, createdAt: serverTimestamp() });
+  const deleteHabit = async (id) => await deleteDoc(doc(db, 'habits', id));
   const toggleHabit = async (habitId, date) => {
-    // Check if already logged
-    const existingLog = habitLogs.find(l => l.habitId === habitId && l.date === date);
-    
-    if (existingLog) {
-      if (existingLog.status) {
-        // Was true, make false
-        await updateDoc(doc(db, 'habitLogs', existingLog.id), { status: false });
-        // Deduct points? Maybe not, too punitive.
-      } else {
-        // Was false, make true
-        await updateDoc(doc(db, 'habitLogs', existingLog.id), { status: true });
-        addPoints(10, 'Habit Completed');
-      }
-    } else {
-      // Create new log
-      await addDoc(collection(db, 'habitLogs'), {
-        userId: user.uid, habitId, date, status: true, createdAt: serverTimestamp()
-      });
-      addPoints(10, 'Habit Completed');
-    }
+    const log = habitLogs.find(l => l.habitId === habitId && l.date === date);
+    if (log) await updateDoc(doc(db, 'habitLogs', log.id), { status: !log.status });
+    else await addDoc(collection(db, 'habitLogs'), { userId: user.uid, uid: user.uid, habitId, date, status: true, createdAt: serverTimestamp() });
   };
 
   // Todos
-  const addTodo = async (title, priority = 'Medium', dueDate = '') => {
-    await addDoc(collection(db, 'todos'), {
-      userId: user.uid, title, priority, dueDate, completed: false, createdAt: serverTimestamp()
-    });
-  };
+  const addTodo = async (title, priority = 'Medium', dueDate = '') => 
+    await addDoc(collection(db, 'todos'), { userId: user.uid, uid: user.uid, title, priority, dueDate, completed: false, createdAt: serverTimestamp() });
 
   const toggleTodo = async (todoId, currentStatus) => {
     await updateDoc(doc(db, 'todos', todoId), { completed: !currentStatus });
-    if (!currentStatus) {
-      addPoints(50, 'Task Completed');
-      playSound('pop');
-    }
+    if (!currentStatus) playSound('pop');
   };
 
   const deleteTodo = async (id) => await deleteDoc(doc(db, 'todos', id));
 
   // Notes
-  const addNote = async (title, content, color = '#ffffff') => {
-    await addDoc(collection(db, 'notes'), {
-      userId: user.uid, title, content, color, pinned: false, createdAt: serverTimestamp()
-    });
-  };
+  const addNote = async (title, content, color = '#ffffff') => 
+    await addDoc(collection(db, 'notes'), { userId: user.uid, uid: user.uid, title, content, color, pinned: false, createdAt: serverTimestamp() });
 
   const updateNote = async (id, data) => await updateDoc(doc(db, 'notes', id), data);
   const deleteNote = async (id) => await deleteDoc(doc(db, 'notes', id));
 
+  // --- Smart Planner (Shopping & Trips) ---
+  
+  const addTrip = async (tripData) => {
+    return await addDoc(collection(db, 'trips'), {
+        userId: user.uid,
+        uid: user.uid,
+        passengers: 1,
+        ...tripData,
+        createdAt: serverTimestamp()
+    });
+  };
+
+  const updateTrip = async (id, data) => await updateDoc(doc(db, 'trips', id), data);
+
+  const deleteTrip = async (id) => {
+    await deleteDoc(doc(db, 'trips', id));
+    const tripItems = shoppingList.filter(i => i.tripId === id);
+    for (const item of tripItems) await deleteDoc(doc(db, 'shoppingList', item.id));
+  };
+
+  const addShoppingItem = async (itemData) => {
+    const docRef = await addDoc(collection(db, 'shoppingList'), {
+      userId: user.uid,
+      uid: user.uid,
+      completed: false,
+      itemType: 'buy', 
+      bookingStatus: 'planned', // 'planned', 'booked', 'paid'
+      ...itemData,
+      estimatedPrice: Number(itemData.estimatedPrice || 0),
+      createdAt: serverTimestamp()
+    });
+
+    if (itemData.targetDate) {
+        addTodo(`Reminder: ${itemData.name}`, 'Medium', itemData.targetDate);
+    }
+    return docRef;
+  };
+
+  const updateShoppingItem = async (id, data) => await updateDoc(doc(db, 'shoppingList', id), data);
+
+  const toggleShoppingItem = async (id, currentStatus) => {
+    await updateDoc(doc(db, 'shoppingList', id), { completed: !currentStatus });
+    if (!currentStatus) playSound('pop');
+  };
+
+  const deleteShoppingItem = async (id) => await deleteDoc(doc(db, 'shoppingList', id));
+
+  const clearCompletedShopping = async (tripId = null) => {
+    const completed = shoppingList.filter(item => item.completed && (tripId ? item.tripId === tripId : !item.tripId));
+    for (const item of completed) await deleteDoc(doc(db, 'shoppingList', item.id));
+  };
+
   const value = {
-    habits, habitLogs, todos, notes, gamifyData, loading,
-    addHabit, deleteHabit, toggleHabit,
+    habits, habitLogs, todos, notes, shoppingList, trips, loading,
+    addHabit, deleteHabit, toggleHabit, 
     addTodo, toggleTodo, deleteTodo,
     addNote, updateNote, deleteNote,
-    addPoints 
+    addTrip, updateTrip, deleteTrip, addShoppingItem, updateShoppingItem, toggleShoppingItem, deleteShoppingItem, clearCompletedShopping
   };
 
   return <ProductivityContext.Provider value={value}>{children}</ProductivityContext.Provider>;

@@ -1,0 +1,131 @@
+/* Productivity Section Modern UI Styles */
+
+:root {
+    --prod-card-bg: var(--nav-bg);
+    --prod-border: var(--border-color);
+    --prod-text-main: var(--text-primary);
+    --prod-text-sub: var(--text-secondary);
+    --prod-accent: #6366f1; /* Indigo */
+    --prod-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] {
+    --prod-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.prod-container {
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.prod-card {
+    background: var(--prod-card-bg) !important;
+    border: 1px solid var(--prod-border) !important;
+    border-radius: 1.25rem !important;
+    box-shadow: var(--prod-shadow) !important;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.prod-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+}
+
+.prod-title {
+    color: var(--prod-text-main) !important;
+    font-weight: 700 !important;
+}
+
+.prod-subtitle {
+    color: var(--prod-text-sub) !important;
+    font-size: 0.875rem;
+}
+
+/* Custom Checkbox/Toggle */
+.prod-checkbox {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--prod-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: transparent;
+    background: transparent;
+}
+
+.prod-checkbox.active {
+    background: var(--prod-accent);
+    border-color: var(--prod-accent);
+    color: white;
+}
+
+/* Modern List Items */
+.prod-list-item {
+    background: transparent !important;
+    border-bottom: 1px solid var(--prod-border) !important;
+    padding: 1rem 1.25rem !important;
+    color: var(--prod-text-main) !important;
+    transition: background 0.2s;
+}
+
+.prod-list-item:last-child {
+    border-bottom: none !important;
+}
+
+.prod-list-item:hover {
+    background: rgba(99, 102, 241, 0.03) !important;
+}
+
+/* Floating Action Button for Android Style */
+.prod-fab {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--prod-accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    z-index: 1000;
+    border: none;
+    transition: transform 0.2s;
+}
+
+.prod-fab:active {
+    transform: scale(0.9);
+}
+
+/* Dark Mode Input Fixes */
+.prod-input {
+    background: var(--bg-color) !important;
+    border: 1px solid var(--prod-border) !important;
+    color: var(--prod-text-main) !important;
+    border-radius: 0.75rem !important;
+}
+
+.prod-input:focus {
+    border-color: var(--prod-accent) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Badges */
+.prod-badge {
+    padding: 0.4em 0.8em !important;
+    font-weight: 600 !important;
+    border-radius: 0.5rem !important;
+}
+
+/* Scrollbar */
+.scrollbar-hidden::-webkit-scrollbar { display: none; }
+.scrollbar-hidden { -ms-overflow-style: none; scrollbar-width: none; }

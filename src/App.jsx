@@ -5,6 +5,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { ProductivityProvider } from './context/ProductivityContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { UIProvider, useUI } from './context/UIContext';
 
 // Finance Components
 import WalletPanel from './components/WalletPanel';
@@ -13,9 +14,9 @@ import BudgetPlanner from './components/BudgetPlanner';
 import ReportPanel from './components/ReportPanel';
 import SettingsPanel from './components/SettingsPanel';
 import DashboardView from './components/DashboardView';
+import SmartPlanner from './components/SmartPlanner'; // New location
 
 // Productivity Components
-import GamifyDashboard from './components/productivity/GamifyDashboard';
 import HabitTracker from './components/productivity/HabitTracker';
 import TodoManager from './components/productivity/TodoManager';
 import NotesApp from './components/productivity/NotesApp';
@@ -29,7 +30,7 @@ import Sidebar from './components/Sidebar';
 import AuthView from './components/AuthView';
 import AddTransactionModal from './components/AddTransactionModal';
 import PageLoader from './components/PageLoader';
-import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaGamepad } from 'react-icons/fa';
+import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaList } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Error Boundary Component
@@ -66,13 +67,13 @@ const MobileHeader = () => {
       <Container>
         <Navbar.Brand 
           className="d-flex align-items-center fw-bold text-primary" 
-          onClick={() => navigate(isProductivity ? '/wallets' : '/productivity/gamify')} 
+          onClick={() => navigate('/wallets')} 
           style={{ cursor: 'pointer' }}
         >
           <div className={`bg-opacity-10 rounded-circle p-2 me-2 ${isProductivity ? 'bg-indigo text-indigo' : 'bg-primary text-primary'}`} style={{ color: isProductivity ? '#6366f1' : '' }}>
-            {isProductivity ? <FaGamepad size={20} /> : <FaWallet size={20} />}
+            {isProductivity ? <FaList size={20} /> : <FaWallet size={20} />}
           </div>
-          {isProductivity ? 'Productivity' : 'SMWallet'}
+          {isProductivity ? 'Tools' : 'SMWallet'}
         </Navbar.Brand>
         <div className="d-flex align-items-center gap-3">
           <Button variant="link" onClick={toggleTheme} className="text-secondary p-0">
@@ -86,7 +87,6 @@ const MobileHeader = () => {
       {/* Mobile Sub-Nav for Productivity */}
       {isProductivity && (
          <div className="w-100 overflow-auto d-flex gap-3 px-3 pb-2 border-top pt-2" style={{ background: 'var(--nav-bg)' }}>
-            <Button variant={location.pathname.includes('gamify') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/gamify')}>Gamify</Button>
             <Button variant={location.pathname.includes('habits') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/habits')}>Habits</Button>
             <Button variant={location.pathname.includes('todos') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/todos')}>Tasks</Button>
             <Button variant={location.pathname.includes('notes') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/notes')}>Notes</Button>
@@ -116,10 +116,10 @@ function ProtectedRoute({ children }) {
 
 function AppLayout() {
   const { loading } = useApp();
+  const { showAddTransactionModal, transactionPreFill, openTransactionModal, closeTransactionModal } = useUI();
   const location = useLocation();
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
-  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 992);
 
   useEffect(() => {
@@ -141,7 +141,7 @@ function AppLayout() {
       {/* Sidebar for Desktop */}
       {isDesktop && (
         <Sidebar 
-          onAddTransaction={() => setShowAddTransactionModal(true)}
+          onAddTransaction={() => openTransactionModal()}
         />
       )}
 
@@ -168,9 +168,9 @@ function AppLayout() {
                     <Route path="/reports" element={<ReportPanel />} />
                     <Route path="/settings" element={<SettingsPanel />} />
                     <Route path="/history" element={<DashboardView />} />
+                    <Route path="/planner" element={<SmartPlanner />} />
                     
                     {/* Productivity Routes */}
-                    <Route path="/productivity/gamify" element={<GamifyDashboard />} />
                     <Route path="/productivity/habits" element={<HabitTracker />} />
                     <Route path="/productivity/todos" element={<TodoManager />} />
                     <Route path="/productivity/notes" element={<NotesApp />} />
@@ -192,7 +192,7 @@ function AppLayout() {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             className="fab-btn" 
-            onClick={() => setShowAddTransactionModal(true)}
+            onClick={() => openTransactionModal()}
             aria-label="Add Transaction"
           >
             <FaPlus />
@@ -218,7 +218,8 @@ function AppLayout() {
 
       <AddTransactionModal
         show={showAddTransactionModal}
-        onHide={() => setShowAddTransactionModal(false)}
+        onHide={closeTransactionModal}
+        preFill={transactionPreFill}
       />
     </div>
   );
@@ -228,15 +229,17 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppProvider>
-          <ProductivityProvider>
-            <HashRouter>
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            </HashRouter>
-          </ProductivityProvider>
-        </AppProvider>
+        <ProductivityProvider>
+          <AppProvider>
+            <UIProvider>
+              <HashRouter>
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              </HashRouter>
+            </UIProvider>
+          </AppProvider>
+        </ProductivityProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -4,10 +4,11 @@ import {
   FaWallet, 
   FaChartPie, 
   FaCog, 
-  FaGamepad,
+  FaTasks,
   FaHistory,
   FaPiggyBank,
-  FaFileAlt
+  FaFileAlt,
+  FaMapMarkedAlt
 } from 'react-icons/fa';
 
 const BottomNav = () => {
@@ -31,19 +32,19 @@ const BottomNav = () => {
       </NavLink>
 
       <NavLink 
+        to="/planner"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+      >
+        <FaMapMarkedAlt className="nav-icon" />
+        <span>Planner</span>
+      </NavLink>
+
+      <NavLink 
         to="/goals"
         className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
       >
         <FaPiggyBank className="nav-icon" />
         <span>Goals</span>
-      </NavLink>
-
-      <NavLink 
-        to="/budget"
-        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
-      >
-        <FaChartPie className="nav-icon" />
-        <span>Budget</span>
       </NavLink>
 
       <NavLink 
@@ -55,11 +56,11 @@ const BottomNav = () => {
       </NavLink>
 
       <NavLink 
-        to="/productivity/gamify"
+        to="/productivity/habits"
         className={({ isActive }) => `nav-item text-decoration-none ${isActive || location.pathname?.includes('productivity') ? 'active' : ''}`}
       >
-        <FaGamepad className="nav-icon" />
-        <span>Gamify</span>
+        <FaTasks className="nav-icon" />
+        <span>Tools</span>
       </NavLink>
 
       <NavLink 

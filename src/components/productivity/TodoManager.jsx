@@ -1,147 +1,159 @@
 import React, { useState } from 'react';
-import { Card, Form, Button, Badge, Row, Col, InputGroup } from 'react-bootstrap';
+import { Card, Button, Form, Row, Col, Badge, Dropdown } from 'react-bootstrap';
 import { useProductivity } from '../../context/ProductivityContext';
-import { FaPlus, FaTrash, FaCheckCircle, FaRegCircle, FaCalendarAlt, FaFlag } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaPlus, FaTrash, FaCheck, FaTasks, FaChevronRight, FaClock, FaEllipsisV } from 'react-icons/fa';
+import '../../Productivity.css';
 
 const TodoManager = () => {
   const { todos, addTodo, toggleTodo, deleteTodo } = useProductivity();
-  const [filter, setFilter] = useState('all'); // all, today, week, overdue
-  const [newTask, setNewTask] = useState('');
-  const [priority, setPriority] = useState('Medium');
-  const [dueDate, setDueDate] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', priority: 'Medium', dueDate: '' });
 
   const handleAdd = (e) => {
     e.preventDefault();
-    if (!newTask.trim()) return;
-    addTodo(newTask, priority, dueDate);
-    setNewTask('');
-    setPriority('Medium');
-    setDueDate('');
+    if (!newTask.title.trim()) return;
+    addTodo(newTask.title, newTask.priority, newTask.dueDate);
+    setNewTask({ title: '', priority: 'Medium', dueDate: '' });
+    setShowAdd(false);
   };
 
-  const getFilteredTodos = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date();
-    
-    return todos.filter(t => {
-      if (filter === 'all') return true;
-      if (filter === 'today') return t.dueDate === today;
-      if (filter === 'overdue') return t.dueDate && t.dueDate < today && !t.completed;
-      return true;
-    });
+  const getPriorityColor = (p) => {
+    switch(p) {
+        case 'High': return 'danger';
+        case 'Medium': return 'warning';
+        case 'Low': return 'info';
+        default: return 'secondary';
+    }
   };
 
-  const priorityColors = {
-    High: 'danger',
-    Medium: 'warning',
-    Low: 'success'
-  };
+  const sortedTodos = [...todos].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      const priorities = { 'High': 0, 'Medium': 1, 'Low': 2 };
+      return priorities[a.priority] - priorities[b.priority];
+  });
 
   return (
-    <div className="mb-5">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4 className="fw-bold mb-0">Tasks & To-Dos</h4>
-        <div className="d-flex gap-2">
-            {['all', 'today', 'overdue'].map(f => (
-                <Button 
-                    key={f} 
-                    size="sm" 
-                    variant={filter === f ? 'primary' : 'light'} 
-                    className="text-capitalize rounded-pill px-3"
-                    onClick={() => setFilter(f)}
-                >
-                    {f}
-                </Button>
-            ))}
+    <div className="prod-container pb-5">
+      <div className="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h2 className="prod-title mb-1">Tasks</h2>
+            <p className="prod-subtitle mb-0">Organize your day, one task at a time.</p>
         </div>
+        <Button variant="primary" size="sm" className="rounded-pill px-4 shadow-sm" onClick={() => setShowAdd(!showAdd)}>
+            <FaPlus className="me-2" /> New Task
+        </Button>
       </div>
 
-      <Card className="border-0 shadow-sm mb-4">
-        <Card.Body>
-          <Form onSubmit={handleAdd} className="d-flex gap-2 flex-wrap flex-md-nowrap">
-            <Form.Control 
-              placeholder="Add a new task..." 
-              value={newTask}
-              onChange={e => setNewTask(e.target.value)}
-              className="border-0 bg-light fw-medium"
-            />
-            <InputGroup className="w-auto">
-                <Form.Select 
-                    value={priority} 
-                    onChange={e => setPriority(e.target.value)}
-                    className="border-0 bg-light text-muted"
-                    style={{ maxWidth: '120px' }}
-                >
-                    <option>High</option>
-                    <option>Medium</option>
-                    <option>Low</option>
-                </Form.Select>
-            </InputGroup>
-            <Form.Control 
-                type="date" 
-                value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
-                className="border-0 bg-light text-muted w-auto"
-            />
-            <Button type="submit" variant="primary" className="rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '38px', height: '38px' }}>
-                <FaPlus />
-            </Button>
-          </Form>
-        </Card.Body>
+      <AnimatePresence>
+        {showAdd && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mb-4">
+            <Card className="prod-card border-0 p-4">
+              <Form onSubmit={handleAdd}>
+                <Row className="g-3">
+                  <Col md={12}>
+                    <Form.Control 
+                      placeholder="What needs to be done?" 
+                      value={newTask.title}
+                      onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                      className="prod-input py-2 px-3 fs-5"
+                      autoFocus
+                      required
+                    />
+                  </Col>
+                  <Col md={5}>
+                    <Form.Label className="prod-subtitle fw-bold small uppercase">Priority</Form.Label>
+                    <div className="d-flex gap-2">
+                        {['Low', 'Medium', 'High'].map(p => (
+                            <Button 
+                                key={p}
+                                variant={newTask.priority === p ? getPriorityColor(p) : 'outline-secondary'}
+                                size="sm"
+                                className="rounded-pill flex-grow-1"
+                                onClick={() => setNewTask({...newTask, priority: p})}
+                            >
+                                {p}
+                            </Button>
+                        ))}
+                    </div>
+                  </Col>
+                  <Col md={5}>
+                    <Form.Label className="prod-subtitle fw-bold small uppercase">Due Date</Form.Label>
+                    <Form.Control 
+                        type="date"
+                        value={newTask.dueDate}
+                        onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
+                        className="prod-input"
+                    />
+                  </Col>
+                  <Col md={2} className="d-flex align-items-end">
+                    <Button type="submit" variant="primary" className="w-100 rounded-pill py-2 fw-bold">Create</Button>
+                  </Col>
+                </Row>
+              </Form>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Card className="prod-card border-0">
+        <div className="pb-2">
+          {sortedTodos.length > 0 ? (
+            sortedTodos.map((todo) => (
+              <div key={todo.id} className="prod-list-item d-flex align-items-center justify-content-between">
+                <div className="d-flex align-items-center gap-3 flex-grow-1">
+                  <div 
+                      className={`prod-checkbox ${todo.completed ? 'active' : ''}`}
+                      onClick={() => toggleTodo(todo.id, todo.completed)}
+                  >
+                    {todo.completed && <FaCheck size={12} />}
+                  </div>
+                  <div className={todo.completed ? 'text-decoration-line-through opacity-50' : 'flex-grow-1'}>
+                    <div className="fw-bold prod-title d-flex align-items-center gap-2">
+                        {todo.title}
+                        {!todo.completed && (
+                            <Badge bg={getPriorityColor(todo.priority)} className="prod-badge bg-opacity-10 text-capitalize" style={{ fontSize: '0.65rem', color: `var(--bs-${getPriorityColor(todo.priority)})` }}>
+                                {todo.priority}
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="prod-subtitle d-flex align-items-center gap-3">
+                        {todo.dueDate && (
+                            <span className="d-flex align-items-center gap-1">
+                                <FaClock size={10} /> {new Date(todo.dueDate).toLocaleDateString()}
+                            </span>
+                        )}
+                        <span className="opacity-50">#personal</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <Dropdown align="end">
+                  <Dropdown.Toggle variant="link" className="text-muted p-0 border-0 shadow-none no-caret">
+                    <FaEllipsisV />
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu className="shadow-lg border-0 rounded-4">
+                    <Dropdown.Item className="text-danger" onClick={() => deleteTodo(todo.id)}>
+                        <FaTrash className="me-2" /> Delete Task
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-5">
+                <FaTasks size={48} className="text-muted opacity-25 mb-3" />
+                <h5 className="prod-title opacity-50">Clean slate!</h5>
+                <p className="prod-subtitle">You don't have any tasks for today.</p>
+            </div>
+          )}
+        </div>
       </Card>
 
-      <div className="d-flex flex-column gap-2">
-        <AnimatePresence>
-            {getFilteredTodos().map(todo => (
-                <motion.div
-                    key={todo.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    layout
-                >
-                    <Card className={`border-0 shadow-sm ${todo.completed ? 'opacity-50' : ''}`}>
-                        <Card.Body className="p-3 d-flex align-items-center justify-content-between">
-                            <div className="d-flex align-items-center gap-3">
-                                <motion.div 
-                                    whileTap={{ scale: 0.8 }}
-                                    onClick={() => toggleTodo(todo.id, todo.completed)}
-                                    className={`cursor-pointer ${todo.completed ? 'text-success' : 'text-muted'}`}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    {todo.completed ? <FaCheckCircle size={22} /> : <FaRegCircle size={22} />}
-                                </motion.div>
-                                <div>
-                                    <div className={`fw-medium ${todo.completed ? 'text-decoration-line-through text-muted' : ''}`}>
-                                        {todo.title}
-                                    </div>
-                                    <div className="d-flex gap-2 align-items-center small text-muted mt-1">
-                                        {todo.dueDate && (
-                                            <span className={`d-flex align-items-center gap-1 ${!todo.completed && todo.dueDate < new Date().toISOString().split('T')[0] ? 'text-danger fw-bold' : ''}`}>
-                                                <FaCalendarAlt size={10} /> {todo.dueDate}
-                                            </span>
-                                        )}
-                                        <Badge bg={priorityColors[todo.priority]} text="white" className="fw-normal" style={{ fontSize: '0.65rem' }}>
-                                            {todo.priority}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </div>
-                            <Button variant="link" className="text-danger p-0 opacity-50 hover-opacity-100" onClick={() => deleteTodo(todo.id)}>
-                                <FaTrash />
-                            </Button>
-                        </Card.Body>
-                    </Card>
-                </motion.div>
-            ))}
-        </AnimatePresence>
-        {getFilteredTodos().length === 0 && (
-            <div className="text-center py-5 text-muted opacity-50">
-                No tasks found. Time to relax?
-            </div>
-        )}
-      </div>
+      <style>{`
+        .no-caret::after { display: none !important; }
+        .shadow-inner { box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06); }
+      `}</style>
     </div>
   );
 };

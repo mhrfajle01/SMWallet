@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +14,7 @@ const schema = z.object({
   walletId: z.string().min(1, "Please select a wallet"),
 });
 
-const PurchaseForm = () => {
+const PurchaseForm = ({ preFill }) => {
   const { wallets, addPurchase, categories } = useApp();
   const [status, setStatus] = useState({ show: false, message: '' });
   const [impactData, setImpactData] = useState(null);
@@ -23,17 +23,28 @@ const PurchaseForm = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
-      category: categories[0]?.id || 'Other',
-      item: '',
-      amount: '',
+      category: preFill?.category || categories[0]?.id || 'Other',
+      item: preFill?.item || '',
+      amount: preFill?.amount || '',
       walletId: ''
     }
   });
 
+  // Reset form when preFill changes (for when modal is opened with new data)
+  useEffect(() => {
+    if (preFill) {
+      reset({
+        date: new Date().toISOString().split('T')[0],
+        category: preFill.category || categories[0]?.id || 'Other',
+        item: preFill.item || '',
+        amount: preFill.amount || '',
+        walletId: ''
+      });
+    }
+  }, [preFill, reset, categories]);
+
   const onSubmit = async (data) => {
     const selectedWallet = wallets.find(w => w.id === data.walletId);
-    
-    // Auto-capture time
     const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     setImpactData({
