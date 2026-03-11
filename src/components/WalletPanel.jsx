@@ -70,29 +70,29 @@ const WalletPanel = ({ onOpenCreateModal }) => {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="custom-card mb-5 border-0 premium-header text-white shadow-lg">
+        <Card className="custom-card mb-5 border-0 premium-header shadow-lg" style={{ color: 'white' }}>
           <Card.Body className="p-4 p-md-5">
             {/* Real vs Debt Split - Top focus */}
             <Row className="g-3 mb-4">
               <Col xs={6}>
-                <div className="p-3 rounded-4 h-100 position-relative overflow-hidden" style={{ background: 'rgba(72, 187, 120, 0.15)', border: '1px solid rgba(72, 187, 120, 0.25)' }}>
+                <div className="p-3 rounded-4 h-100 position-relative overflow-hidden" style={{ background: 'rgba(72, 187, 120, 0.2)', border: '1px solid rgba(72, 187, 120, 0.3)' }}>
                   <div className="position-relative z-1">
-                    <div className="text-success small fw-bold mb-1 d-flex align-items-center gap-1">
+                    <div className="small fw-bold mb-1 d-flex align-items-center gap-1" style={{ color: 'rgba(255,255,255,0.9)' }}>
                       <FaCoins /> Real Balance
                     </div>
                     <h4 className="fw-bold mb-0 text-white">{formatCurrency(globalStats.totalRealBalance)}</h4>
-                    <div className="mt-1 small text-white-50" style={{ fontSize: '0.75em' }}>Liquid Cash</div>
+                    <div className="mt-1 small text-white fw-medium opacity-90" style={{ fontSize: '0.75em' }}>Liquid Cash</div>
                   </div>
                 </div>
               </Col>
               <Col xs={6}>
-                <div className="p-3 rounded-4 h-100 position-relative overflow-hidden" style={{ background: 'rgba(245, 101, 101, 0.15)', border: '1px solid rgba(245, 101, 101, 0.25)' }}>
+                <div className="p-3 rounded-4 h-100 position-relative overflow-hidden" style={{ background: 'rgba(245, 101, 101, 0.2)', border: '1px solid rgba(245, 101, 101, 0.3)' }}>
                    <div className="position-relative z-1">
-                    <div className="text-danger small fw-bold mb-1 d-flex align-items-center gap-1">
+                    <div className="small fw-bold mb-1 d-flex align-items-center gap-1" style={{ color: 'rgba(255,255,255,0.9)' }}>
                       <FaArrowDown /> Current Debt
                     </div>
                     <h4 className="fw-bold mb-0 text-white">{formatCurrency(globalStats.totalDebt)}</h4>
-                    <div className="mt-1 small text-white-50" style={{ fontSize: '0.75em' }}>Outstanding</div>
+                    <div className="mt-1 small text-white fw-medium opacity-90" style={{ fontSize: '0.75em' }}>Outstanding</div>
                   </div>
                 </div>
               </Col>
@@ -109,7 +109,7 @@ const WalletPanel = ({ onOpenCreateModal }) => {
 
             {/* Asset Distribution Bar */}
             <div className="mb-4">
-              <div className="d-flex justify-content-between small mb-2 opacity-75">
+              <div className="d-flex justify-content-between small mb-2 text-white fw-medium opacity-90">
                 <span>Asset Distribution</span>
                 <span>{wallets.filter(w => w.type !== 'liability').length} accounts</span>
               </div>
@@ -141,10 +141,10 @@ const WalletPanel = ({ onOpenCreateModal }) => {
 
             <Row className="g-3">
               <Col xs={12}>
-                <div className="p-3 rounded-4 d-flex justify-content-between align-items-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div className="p-3 rounded-4 d-flex justify-content-between align-items-center" style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <div>
-                    <div className="opacity-75 small mb-1">Total Spent This Month</div>
-                    <h5 className="fw-bold mb-0">{formatCurrency(globalStats.totalSpent)}</h5>
+                    <div className="text-white small mb-1 fw-medium opacity-90">Total Spent This Month</div>
+                    <h5 className="fw-bold mb-0 text-white">{formatCurrency(globalStats.totalSpent)}</h5>
                   </div>
                    <Badge bg={globalStats.totalBalance < 0 ? 'danger' : 'success'} className="rounded-pill px-3 py-2">
                       {globalStats.totalBalance < 0 ? 'In Debt' : 'Solvent'}
@@ -160,7 +160,7 @@ const WalletPanel = ({ onOpenCreateModal }) => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4 className="fw-bold mb-0">My Wallets</h4>
         <div className="d-flex gap-2">
-          <Button variant="outline-primary" onClick={() => setShowTransferModal(true)} className="rounded-pill d-flex align-items-center border-0 shadow-sm bg-white">
+          <Button variant="outline-primary" onClick={() => setShowTransferModal(true)} className="rounded-pill d-flex align-items-center border-0 shadow-sm" style={{ background: 'var(--card-bg)', color: 'var(--primary-color)' }}>
             <FaExchangeAlt className="me-2" /> Transfer
           </Button>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -189,7 +189,7 @@ const WalletPanel = ({ onOpenCreateModal }) => {
                 <Card.Body className="p-4">
                   <div className="d-flex justify-content-between align-items-start mb-4">
                     <div className="d-flex align-items-center">
-                      <div className="bg-light rounded-circle p-3 me-3 text-primary shadow-sm">
+                      <div className="rounded-circle p-3 me-3 text-primary shadow-sm" style={{ background: 'var(--bg-color)' }}>
                          <FaWallet size={24} />
                       </div>
                       <div>
@@ -270,7 +270,7 @@ const WalletPanel = ({ onOpenCreateModal }) => {
                   )}
                 </Card.Body>
                 {/* Progress Bar Visual */}
-                <div className="position-absolute bottom-0 start-0 w-100" style={{ height: '4px', background: '#f0f0f0' }}>
+                <div className="position-absolute bottom-0 start-0 w-100" style={{ height: '4px', background: 'var(--bg-color)' }}>
                    <div 
                       style={{ 
                         width: `${Math.min((wallet.spent / (wallet.balance || 1)) * 100, 100)}%`, 
@@ -312,9 +312,8 @@ const WalletPanel = ({ onOpenCreateModal }) => {
         centered
         fullscreen="md-down"
         size="xl"
-        contentClassName={isDarkMode ? 'bg-dark text-white' : ''}
       >
-        <Modal.Header closeButton className={isDarkMode ? 'border-secondary' : ''}>
+        <Modal.Header closeButton>
           <Modal.Title className="d-flex align-items-center gap-2">
             <FaWallet className="text-primary" />
             <span className="fw-bold">{selectedWallet?.name}</span>
@@ -323,12 +322,12 @@ const WalletPanel = ({ onOpenCreateModal }) => {
             </Badge>
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body className={isDarkMode ? 'bg-dark' : 'bg-light'}>
+        <Modal.Body style={{ background: 'var(--bg-color)' }}>
           {selectedWallet && (
              <div className="container-fluid px-0">
                <Row className="mb-4">
                  <Col md={6} xl={4} className="mb-3 mb-md-0">
-                    <Card className={`h-100 border-0 shadow-sm ${isDarkMode ? 'bg-secondary text-white' : 'bg-white'}`}>
+                    <Card className={`h-100 border-0 shadow-sm`} style={{ background: 'var(--card-bg)' }}>
                       <Card.Body>
                         <small className="text-uppercase fw-bold opacity-75">Current Balance</small>
                         <h2 className="fw-bold my-2 text-primary">{formatCurrency(selectedWallet.balance)}</h2>

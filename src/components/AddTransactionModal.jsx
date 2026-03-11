@@ -5,9 +5,10 @@ import { useTheme } from '../context/ThemeContext';
 import MealForm from './MealForm';
 import PurchaseForm from './PurchaseForm';
 import IncomeForm from './IncomeForm';
+import ReceiptScanner from './ReceiptScanner';
 import { playSound } from '../utils/soundEffects';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaMagic, FaHistory, FaCheck, FaTimes, FaLightbulb } from 'react-icons/fa';
+import { FaMagic, FaHistory, FaCheck, FaTimes, FaLightbulb, FaCamera } from 'react-icons/fa';
 
 const AddTransactionModal = ({ show, onHide, preFill }) => {
   const { wallets, addPurchase, addMeal, getSmartRecents, categories, meals, purchases } = useApp();
@@ -18,6 +19,7 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
   // Magic Bar State
   const [magicInput, setMagicInput] = useState('');
   const [parsed, setParsed] = useState({ amount: 0, item: '', valid: false });
+  const [scanResult, setScanResult] = useState(null);
   
   // Smart Context State
   const [suggestion, setSuggestion] = useState(null);
@@ -34,6 +36,7 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
     if (show) {
       playSound('pop');
       setMagicInput('');
+      setScanResult(null);
       setParsed({ amount: 0, item: '', valid: false });
       
       if (preFill) {
@@ -134,6 +137,11 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
     }
   };
 
+  const handleScanComplete = (data) => {
+    setScanResult(data);
+    setActiveType('purchase');
+  };
+
   return (
     <Modal 
       show={show} onHide={onHide} centered 
@@ -142,18 +150,21 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
     >
       <Modal.Header closeButton className="border-0 pb-0">
         <Modal.Title className="w-100">
-          <Nav variant="pills" className="w-100 justify-content-center p-1 p-md-2 rounded-pill mb-3" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)' }}>
-            <Nav.Item style={{ flex: 1 }}>
-              <Nav.Link active={activeType === 'magic'} onClick={() => setActiveType('magic')} className="rounded-pill text-center small py-2">Magic</Nav.Link>
+          <Nav variant="pills" className="w-100 justify-content-center p-1 p-md-2 rounded-pill mb-3 overflow-auto scrollbar-hidden flex-nowrap" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+            <Nav.Item>
+              <Nav.Link active={activeType === 'magic'} onClick={() => setActiveType('magic')} className="rounded-pill text-center small py-2 px-3">Magic</Nav.Link>
             </Nav.Item>
-            <Nav.Item style={{ flex: 1 }}>
-              <Nav.Link active={activeType === 'meal'} onClick={() => setActiveType('meal')} className="rounded-pill text-center small py-2 text-primary">Meal</Nav.Link>
+            <Nav.Item>
+              <Nav.Link active={activeType === 'scan'} onClick={() => setActiveType('scan')} className="rounded-pill text-center small py-2 px-3 text-warning"><FaCamera className="me-1" /> Scan</Nav.Link>
             </Nav.Item>
-            <Nav.Item style={{ flex: 1 }}>
-              <Nav.Link active={activeType === 'purchase'} onClick={() => setActiveType('purchase')} className="rounded-pill text-center small py-2 text-danger">Spend</Nav.Link>
+            <Nav.Item>
+              <Nav.Link active={activeType === 'meal'} onClick={() => setActiveType('meal')} className="rounded-pill text-center small py-2 px-3 text-primary">Meal</Nav.Link>
             </Nav.Item>
-            <Nav.Item style={{ flex: 1 }}>
-              <Nav.Link active={activeType === 'income'} onClick={() => setActiveType('income')} className="rounded-pill text-center small py-2 text-success">Income</Nav.Link>
+            <Nav.Item>
+              <Nav.Link active={activeType === 'purchase'} onClick={() => setActiveType('purchase')} className="rounded-pill text-center small py-2 px-3 text-danger">Spend</Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link active={activeType === 'income'} onClick={() => setActiveType('income')} className="rounded-pill text-center small py-2 px-3 text-success">Income</Nav.Link>
             </Nav.Item>
           </Nav>
         </Modal.Title>
@@ -202,7 +213,16 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
             </div>
 
             <Form onSubmit={handleMagicSubmit}>
-              <Form.Label className="small fw-bold text-muted uppercase mb-2">Magic Bar</Form.Label>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <Form.Label className="small fw-bold text-muted uppercase mb-0">Magic Bar</Form.Label>
+                <Button 
+                    variant="link" 
+                    className="p-0 text-decoration-none small d-flex align-items-center gap-1 text-primary fw-bold"
+                    onClick={() => setActiveType('scan')}
+                >
+                    <FaCamera size={12} /> Upload Receipt
+                </Button>
+              </div>
               <InputGroup className="shadow-sm rounded-4 overflow-hidden border-0" style={{ background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9' }}>
                 <InputGroup.Text className="bg-transparent border-0 text-primary ps-3 pe-2">
                   <FaMagic size={18} />
@@ -240,9 +260,14 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
           </motion.div>
         )}
 
-        {activeType === 'meal' && <MealForm />}
-        {activeType === 'purchase' && <PurchaseForm preFill={preFill} />}
-        {activeType === 'income' && <IncomeForm />}
+        {activeType === 'meal' && <MealForm preFill={scanResult} />}
+        {activeType === 'purchase' && <PurchaseForm preFill={scanResult || preFill} />}
+        {activeType === 'income' && <IncomeForm preFill={scanResult} />}
+        {activeType === 'scan' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <ReceiptScanner onScanComplete={handleScanComplete} onCancel={() => setActiveType('magic')} />
+            </motion.div>
+        )}
       </Modal.Body>
     </Modal>
   );

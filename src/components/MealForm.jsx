@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +14,7 @@ const schema = z.object({
   walletId: z.string().min(1, "Please select a wallet"),
 });
 
-const MealForm = () => {
+const MealForm = ({ preFill }) => {
   const { wallets, addMeal } = useApp();
   const [status, setStatus] = useState({ show: false, message: '' });
   const [impactData, setImpactData] = useState(null);
@@ -24,11 +24,24 @@ const MealForm = () => {
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
       mealType: 'Lunch',
-      item: '',
-      amount: '',
+      item: preFill?.item || '',
+      amount: preFill?.amount || '',
       walletId: ''
     }
   });
+
+  // Reset form when preFill changes
+  useEffect(() => {
+    if (preFill) {
+      reset({
+        date: new Date().toISOString().split('T')[0],
+        mealType: 'Lunch',
+        item: preFill.item || '',
+        amount: preFill.amount || '',
+        walletId: ''
+      });
+    }
+  }, [preFill, reset]);
 
   const onSubmit = async (data) => {
     const selectedWallet = wallets.find(w => w.id === data.walletId);

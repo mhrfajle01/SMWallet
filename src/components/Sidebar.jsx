@@ -4,10 +4,11 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   FaWallet, FaChartPie, FaFileAlt, FaTasks, FaList, 
   FaStickyNote, FaDatabase, FaCog, FaPlus, FaSignOutAlt,
-  FaPiggyBank, FaHistory, FaMapMarkedAlt
+  FaPiggyBank, FaHistory, FaMapMarkedAlt, FaTrash
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import FloatingBalance from './FloatingBalance';
+import GlobalSearch from './GlobalSearch';
 
 const Sidebar = ({ onAddTransaction }) => {
   const { logout } = useAuth();
@@ -26,11 +27,12 @@ const Sidebar = ({ onAddTransaction }) => {
     { path: '/productivity/habits', icon: FaList, label: 'Habit Tracker' },
     { path: '/productivity/todos', icon: FaTasks, label: 'To-Do Manager' },
     { path: '/productivity/notes', icon: FaStickyNote, label: 'Notes' },
+    { path: '/trash', icon: FaTrash, label: 'Trash' },
     { path: '/productivity/data', icon: FaDatabase, label: 'Data Backup' },
   ];
 
   return (
-    <div className="sidebar d-none d-lg-flex flex-column shadow-sm border-end">
+    <div className="sidebar d-none d-lg-flex flex-column shadow-sm border-end" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
       <div className="sidebar-header p-4 text-center">
         <h4 className="fw-bold text-primary mb-0">SMWallet</h4>
         <small className="text-muted">Pro Finance Tool</small>
@@ -80,7 +82,7 @@ const Sidebar = ({ onAddTransaction }) => {
         </div>
       </div>
 
-      <div className="sidebar-footer p-3 border-top bg-light">
+      <div className="sidebar-footer p-3 border-top" style={{ background: 'var(--bg-color)', borderColor: 'var(--border-color)' }}>
         <NavLink 
           to="/settings" 
           className={({ isActive }) => `sidebar-link rounded-3 px-3 py-2 d-flex align-items-center gap-3 text-decoration-none mb-2 ${isActive ? 'active' : ''}`}

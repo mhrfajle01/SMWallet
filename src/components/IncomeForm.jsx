@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +13,7 @@ const schema = z.object({
   walletId: z.string().min(1, "Please select a wallet"),
 });
 
-const IncomeForm = () => {
+const IncomeForm = ({ preFill }) => {
   const { wallets, addIncome } = useApp();
   const [status, setStatus] = useState({ show: false, message: '' });
   const [impactData, setImpactData] = useState(null);
@@ -22,11 +22,23 @@ const IncomeForm = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
-      source: 'Salary',
-      amount: '',
+      source: preFill?.source || 'Salary',
+      amount: preFill?.amount || '',
       walletId: ''
     }
   });
+
+  // Reset form when preFill changes
+  useEffect(() => {
+    if (preFill) {
+      reset({
+        date: new Date().toISOString().split('T')[0],
+        source: preFill.source || 'Salary',
+        amount: preFill.amount || '',
+        walletId: ''
+      });
+    }
+  }, [preFill, reset]);
 
   const onSubmit = async (data) => {
     const selectedWallet = wallets.find(w => w.id === data.walletId);

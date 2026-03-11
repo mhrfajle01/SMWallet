@@ -103,8 +103,8 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
 
   // Render Filter Popover
   const renderFilterPopover = (column) => (
-    <Popover id={`popover-${column.key}`} className={`shadow-lg border-0 ${isDarkMode ? 'bg-dark text-white' : ''}`}>
-      <Popover.Header as="h3" className={`border-bottom d-flex justify-content-between align-items-center ${isDarkMode ? 'bg-dark text-white border-secondary' : 'bg-white'}`}>
+    <Popover id={`popover-${column.key}`} className={`shadow-lg border-0`} style={{ background: 'var(--card-bg)' }}>
+      <Popover.Header as="h3" className={`border-bottom d-flex justify-content-between align-items-center`} style={{ background: 'var(--card-bg)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
         <span>Filter {column.label}</span>
         {activeFilters[column.key] && (
             <Button variant="link" size="sm" className="p-0 text-danger text-decoration-none" onClick={() => clearColumnFilter(column.key)}>
@@ -113,19 +113,21 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
         )}
       </Popover.Header>
       <Popover.Body className="p-0">
-        <div className={`p-2 border-bottom ${isDarkMode ? 'bg-black bg-opacity-25 border-secondary' : 'bg-light'}`}>
+        <div className={`p-2 border-bottom`} style={{ background: 'var(--bg-color)', borderColor: 'var(--border-color)' }}>
             <Button 
-                variant={isDarkMode ? 'dark' : 'light'}
+                variant="light"
                 size="sm" 
-                className="w-100 text-start mb-1 d-flex align-items-center gap-2"
+                className="w-100 text-start mb-1 d-flex align-items-center gap-2 border-0 shadow-none"
+                style={{ background: 'transparent', color: 'var(--text-primary)' }}
                 onClick={() => setSortConfig({ key: column.key, direction: 'asc' })}
             >
                 {column.type === 'number' ? <FaSortNumericDown /> : <FaSortAlphaDown />} Sort Ascending
             </Button>
             <Button 
-                variant={isDarkMode ? 'dark' : 'light'} 
+                variant="light" 
                 size="sm" 
-                className="w-100 text-start d-flex align-items-center gap-2"
+                className="w-100 text-start d-flex align-items-center gap-2 border-0 shadow-none"
+                style={{ background: 'transparent', color: 'var(--text-primary)' }}
                 onClick={() => setSortConfig({ key: column.key, direction: 'desc' })}
             >
                 {column.type === 'number' ? <FaSortNumericUp /> : <FaSortAlphaUpAlt />} Sort Descending
@@ -133,15 +135,16 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
         </div>
         <div className="p-2">
             <InputGroup size="sm" className="mb-2">
-                <InputGroup.Text className={`${isDarkMode ? 'bg-secondary text-white border-secondary' : 'bg-white border-end-0'}`}><FaSearch size={10} /></InputGroup.Text>
+                <InputGroup.Text className={`border-0 px-3 bg-transparent text-muted`}><FaSearch size={10} /></InputGroup.Text>
                 <Form.Control 
                     placeholder="Search values..." 
-                    className={`${isDarkMode ? 'bg-dark text-white border-secondary border-start-0' : 'border-start-0'}`}
+                    className={`border-0 py-2 shadow-none bg-transparent`}
+                    style={{ color: 'var(--text-primary)', background: 'transparent' }}
                     value={columnSearch[column.key] || ''}
                     onChange={(e) => setColumnSearch({ ...columnSearch, [column.key]: e.target.value })}
                 />
             </InputGroup>
-            <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '200px' }}>
+            <div className="overflow-auto custom-scrollbar px-2" style={{ maxHeight: '200px' }}>
                 {uniqueValues[column.key]
                     ?.filter(val => val.toLowerCase().includes((columnSearch[column.key] || '').toLowerCase()))
                     .map(val => (
@@ -149,7 +152,7 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
                         key={val}
                         type="checkbox"
                         id={`filter-${column.key}-${val}`}
-                        label={<span className={`small text-truncate d-inline-block align-middle ${isDarkMode ? 'text-light' : ''}`} style={{ maxWidth: '180px' }}>{val}</span>}
+                        label={<span className={`small text-truncate d-inline-block align-middle`} style={{ maxWidth: '180px', color: 'var(--text-primary)' }}>{val}</span>}
                         checked={activeFilters[column.key]?.has(val) || false}
                         onChange={() => toggleFilter(column.key, val)}
                         className="mb-1"
@@ -163,15 +166,16 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
   );
 
   return (
-    <div className={`table-responsive rounded-3 border shadow-sm ${isDarkMode ? 'bg-dark border-secondary' : 'bg-white'}`}>
-      <Table hover className={`mb-0 align-middle ${isDarkMode ? 'table-dark' : ''}`}>
-        <thead className={isDarkMode ? 'bg-black bg-opacity-25' : 'bg-light'}>
+    <div className={`table-responsive rounded-3 border shadow-sm`} style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+      <Table hover className={`mb-0 align-middle`} style={{ color: 'var(--text-primary)' }}>
+        <thead style={{ background: 'var(--bg-color)' }}>
           <tr>
             {columns.map((col) => (
               <th key={col.key} className="py-3 px-3 border-bottom-0" style={{ minWidth: col.width || 'auto', whiteSpace: 'nowrap' }}>
                 <div className="d-flex align-items-center justify-content-between">
                   <span 
-                    className={`fw-bold small text-uppercase cursor-pointer user-select-none ${isDarkMode ? 'text-light opacity-75' : 'text-secondary'}`}
+                    className={`fw-bold small text-uppercase cursor-pointer user-select-none opacity-75`}
+                    style={{ color: 'var(--text-secondary)' }}
                     onClick={() => handleSort(col.key)}
                   >
                     {col.label}
@@ -196,15 +200,15 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
                 </div>
               </th>
             ))}
-            <th className="py-3 px-3 border-bottom-0 text-end">Action</th>
+            <th className="py-3 px-3 border-bottom-0 text-end" style={{ color: 'var(--text-secondary)' }}>Action</th>
           </tr>
         </thead>
         <tbody>
           {processedData.length > 0 ? (
             processedData.map((row, idx) => (
-              <tr key={row.id || idx}>
+              <tr key={row.id || idx} style={{ borderColor: 'var(--border-color)' }}>
                 {columns.map((col) => (
-                  <td key={col.key} className="px-3">
+                  <td key={col.key} className="px-3" style={{ color: 'var(--text-primary)' }}>
                     {col.render ? col.render(row) : (
                         col.accessor ? col.accessor(row) : row[col.key]
                     )}
@@ -213,10 +217,10 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
                 <td className="text-end px-3">
                     <div className="d-flex justify-content-end gap-2">
                         {onEdit && (
-                            <Button variant={isDarkMode ? 'outline-light' : 'light'} size="sm" className="p-1 text-primary border-0" onClick={() => onEdit(row)}>Edit</Button>
+                            <Button variant="link" size="sm" className="p-1 text-primary border-0" onClick={() => onEdit(row)}>Edit</Button>
                         )}
                         {onDelete && (
-                            <Button variant={isDarkMode ? 'outline-light' : 'light'} size="sm" className="p-1 text-danger border-0" onClick={() => onDelete(row)}>Del</Button>
+                            <Button variant="link" size="sm" className="p-1 text-danger border-0" onClick={() => onDelete(row)}>Del</Button>
                         )}
                     </div>
                 </td>
@@ -231,7 +235,7 @@ const SmartTable = ({ data, columns, onEdit, onDelete }) => {
           )}
         </tbody>
       </Table>
-      <div className={`p-2 border-top text-end small ${isDarkMode ? 'border-secondary text-light opacity-50' : 'bg-light text-muted'}`}>
+      <div className={`p-2 border-top text-end small`} style={{ background: 'var(--bg-color)', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
         Showing {processedData.length} records
       </div>
     </div>

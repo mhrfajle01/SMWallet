@@ -9,7 +9,7 @@ import {
     FaShoppingBasket, FaLightbulb, FaReceipt, FaPlane, 
     FaSuitcase, FaMapMarkerAlt, FaShareAlt, FaCar, FaClock,
     FaUsers, FaRoute, FaArrowRight, FaTicketAlt, FaEllipsisV,
-    FaCalendarCheck, FaCreditCard, FaRegClock, FaHistory
+    FaCalendarCheck, FaCreditCard, FaRegClock, FaHistory, FaChevronDown
 } from 'react-icons/fa';
 import ConfirmModal from './ConfirmModal';
 import '../Productivity.css';
@@ -24,6 +24,7 @@ const SmartPlanner = () => {
   const [showAddTrip, setShowAddTrip] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   
   const [newTrip, setNewTrip] = useState({ name: '', location: '', startDate: '', passengers: 1 });
   const [newItem, setNewItem] = useState({ 
@@ -39,26 +40,24 @@ const SmartPlanner = () => {
     { name: 'Bus', price: 150, category: 'Travel', icon: <FaSuitcase /> },
   ];
 
-  // Logic: Dynamic Route Presets (Suggestion: Build from history)
+  // Logic: Dynamic Route Presets with Frequency & Price Trends
   const routePresets = useMemo(() => {
     const routes = shoppingList.filter(i => i.isRoute && i.from && i.to);
-    const uniqueRoutes = [];
-    const seen = new Set();
+    const stats = {};
 
     routes.forEach(r => {
-        const key = `${r.from}-${r.to}`.toLowerCase();
-        if (!seen.has(key)) {
-            seen.add(key);
-            uniqueRoutes.push({
-                from: r.from,
-                to: r.to,
-                transport: r.transport,
-                price: r.estimatedPrice,
-                category: r.categoryId
-            });
+        const key = `${r.from} to ${r.to}`.toLowerCase();
+        if (!stats[key]) {
+            stats[key] = { ...r, count: 0, minPrice: r.estimatedPrice, maxPrice: r.estimatedPrice };
         }
+        stats[key].count++;
+        stats[key].minPrice = Math.min(stats[key].minPrice, r.estimatedPrice);
+        stats[key].maxPrice = Math.max(stats[key].maxPrice, r.estimatedPrice);
     });
-    return uniqueRoutes.slice(0, 4); // Top 4 historical routes
+
+    return Object.values(stats)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5); 
   }, [shoppingList]);
 
   useEffect(() => {
@@ -73,15 +72,21 @@ const SmartPlanner = () => {
 
   const currentTrip = useMemo(() => trips.find(t => t.id === selectedTripId), [trips, selectedTripId]);
 
-  const currentList = useMemo(() => {
-    return shoppingList.filter(item => 
+  const { activeItems, completedItems, progress } = useMemo(() => {
+    const list = shoppingList.filter(item => 
         activeMode === 'daily' ? !item.tripId : item.tripId === selectedTripId
     ).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+    const active = list.filter(i => !i.completed);
+    const completed = list.filter(i => i.completed);
+    const prog = list.length > 0 ? (completed.length / list.length) * 100 : 0;
+
+    return { activeItems: active, completedItems: completed, progress: prog };
   }, [shoppingList, activeMode, selectedTripId]);
 
   const totalEstimated = useMemo(() => {
-    return currentList.reduce((acc, curr) => acc + (Number(curr.estimatedPrice) || 0), 0);
-  }, [currentList]);
+    return [...activeItems, ...completedItems].reduce((acc, curr) => acc + (Number(curr.estimatedPrice) || 0), 0);
+  }, [activeItems, completedItems]);
 
   const costPerPerson = useMemo(() => {
     const passengers = Number(currentTrip?.passengers || 1);
@@ -132,8 +137,9 @@ const SmartPlanner = () => {
   };
 
   const addRoutePreset = async (route) => {
+    const { id, count, minPrice, maxPrice, ...cleanRoute } = route;
     await addShoppingItem({
-        ...route,
+        ...cleanRoute,
         name: `${route.from} to ${route.to}`,
         isRoute: true,
         type: 'buy',
@@ -178,136 +184,215 @@ const SmartPlanner = () => {
 
           <Card className="prod-card border-0 shadow-sm">
             <Card.Header className="bg-transparent border-0 p-3 p-md-4 d-flex justify-content-between align-items-start">
-              <div className="flex-grow-1 pe-2">
-                  <h5 className="mb-0 fw-bold prod-title fs-6 fs-md-5 text-wrap">
-                      {activeMode === 'daily' ? 'Shopping List' : currentTrip?.name || 'Select a Trip'}
-                  </h5>
+              <div className="flex-grow-1 pe-2 d-flex align-items-start gap-3">
                   {activeMode === 'trip' && currentTrip && (
-                      <div className="text-muted d-flex flex-wrap gap-2 mt-1" style={{ fontSize: '0.75rem' }}>
-                          <span className="d-flex align-items-center gap-1"><FaUsers /> {currentTrip.passengers} pax</span>
-                          <span className="d-flex align-items-center gap-1"><FaMapMarkerAlt /> {currentTrip.location || 'N/A'}</span>
+                      <div className="position-relative d-flex align-items-center justify-content-center" style={{ width: '45px', height: '45px' }}>
+                          <svg width="45" height="45" viewBox="0 0 45 45">
+                              <circle cx="22.5" cy="22.5" r="20" fill="none" stroke="var(--prod-border)" strokeWidth="4" />
+                              <motion.circle 
+                                cx="22.5" cy="22.5" r="20" fill="none" stroke="var(--prod-accent)" strokeWidth="4" 
+                                strokeDasharray="125.6"
+                                initial={{ strokeDashoffset: 125.6 }}
+                                animate={{ strokeDashoffset: 125.6 - (125.6 * progress / 100) }}
+                                transition={{ duration: 0.5 }}
+                                transform="rotate(-90 22.5 22.5)"
+                              />
+                          </svg>
+                          <span className="position-absolute fw-bold text-primary" style={{ fontSize: '0.65rem' }}>{Math.round(progress)}%</span>
                       </div>
                   )}
+                  <div>
+                    <h5 className="mb-0 fw-bold prod-title fs-6 fs-md-5 text-wrap">
+                        {activeMode === 'daily' ? 'Shopping List' : currentTrip?.name || 'Select a Trip'}
+                    </h5>
+                    {activeMode === 'trip' && currentTrip && (
+                        <div className="text-muted d-flex flex-wrap gap-2 mt-1" style={{ fontSize: '0.75rem' }}>
+                            <span className="d-flex align-items-center gap-1"><FaUsers /> {currentTrip.passengers} pax</span>
+                            <span className="d-flex align-items-center gap-1"><FaMapMarkerAlt /> {currentTrip.location || 'N/A'}</span>
+                        </div>
+                    )}
+                  </div>
               </div>
               <div className="d-flex gap-1 align-items-center flex-shrink-0">
                   <Button variant="light" size="sm" className="rounded-circle p-2 border-0 shadow-none" onClick={handleShare}><FaShareAlt size={14}/></Button>
                   
-                  {activeMode === 'trip' && currentTrip && (
-                      <Dropdown align="end">
-                          <Dropdown.Toggle variant="light" className="rounded-circle p-2 border-0 shadow-none no-caret"><FaEllipsisV size={14}/></Dropdown.Toggle>
-                          <Dropdown.Menu className="shadow-lg border-0 rounded-4 p-2">
+                  <Dropdown align="end">
+                      <Dropdown.Toggle variant="light" className="rounded-circle p-2 border-0 shadow-none no-caret"><FaEllipsisV size={14}/></Dropdown.Toggle>
+                      <Dropdown.Menu className="shadow-lg border-0 rounded-4 p-2">
+                          {activeMode === 'trip' && currentTrip && (
                               <Dropdown.Item className="text-danger small" onClick={() => setShowConfirmDelete(true)}><FaTrash className="me-2" /> Delete Trip</Dropdown.Item>
-                          </Dropdown.Menu>
-                      </Dropdown>
-                  )}
+                          )}
+                          {completedItems.length > 0 && (
+                              <Dropdown.Item className="text-muted small" onClick={() => clearCompletedShopping(selectedTripId)}>
+                                  <FaTrash size={12} className="me-2"/> Clear Completed
+                              </Dropdown.Item>
+                          )}
+                      </Dropdown.Menu>
+                  </Dropdown>
 
                   <Button variant="primary" size="sm" className="rounded-pill px-2 px-md-3 shadow-sm small" onClick={() => setShowAddItem(true)}><FaPlus size={12} className="me-1"/> Add</Button>
               </div>
             </Card.Header>
 
             <div className="pb-2">
-              {currentList.length > 0 ? (
-                currentList.map((item) => (
-                    <div key={item.id} className="prod-list-item d-flex flex-column py-3 px-3">
-                      <div className="d-flex align-items-start justify-content-between w-100">
-                        <div className="d-flex align-items-start gap-2 flex-grow-1">
-                            <div 
-                                className={`prod-checkbox mt-1 ${item.completed ? 'active' : ''}`} 
-                                onClick={() => toggleShoppingItem(item.id, item.completed)}
-                                style={{ width: '22px', height: '22px', minWidth: '22px' }}
-                            >
-                            {item.completed && <FaCheck size={10} />}
+              <AnimatePresence mode="popLayout">
+                {activeItems.length > 0 || completedItems.length > 0 ? (
+                  <>
+                    {/* Active Items */}
+                    {activeItems.map((item) => (
+                        <motion.div layout key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="prod-list-item d-flex flex-column py-3 px-3">
+                          <div className="d-flex align-items-start justify-content-between w-100">
+                            <div className="d-flex align-items-start gap-2 flex-grow-1">
+                                <div 
+                                    className={`prod-checkbox mt-1 ${item.completed ? 'active' : ''}`} 
+                                    onClick={() => toggleShoppingItem(item.id, item.completed)}
+                                    style={{ width: '22px', height: '22px', minWidth: '22px' }}
+                                >
+                                {item.completed && <FaCheck size={10} />}
+                                </div>
+                                <div className="flex-grow-1">
+                                    <div className="fw-bold prod-title d-flex flex-wrap align-items-center gap-1" style={{ fontSize: '0.95rem' }}>
+                                        {item.isRoute ? (
+                                            <span className="d-flex align-items-center gap-2 text-wrap">
+                                                {item.from} <FaArrowRight size={10} className="text-primary" /> {item.to}
+                                                <Badge bg="light" text="dark" className="border fw-normal p-1" style={{ fontSize: '0.65rem' }}>{item.transport}</Badge>
+                                            </span>
+                                        ) : <span className="text-wrap">{item.name}</span>}
+                                        {item.itemType === 'pack' && <Badge bg="info" className="prod-badge bg-opacity-10 text-info p-1" style={{ fontSize: '0.6rem' }}>PACK</Badge>}
+                                    </div>
+                                    <div className="prod-subtitle d-flex flex-wrap align-items-center gap-2 mt-1" style={{ fontSize: '0.8rem' }}>
+                                        {item.targetDate && <span className="d-flex align-items-center gap-1"><FaClock size={10} /> {new Date(item.targetDate).toLocaleDateString()}</span>}
+                                        {activeMode === 'daily' && <span>{categories.find(c => c.id === item.categoryId)?.label}</span>}
+                                    </div>
+                                </div>
                             </div>
-                            <div className={item.completed ? 'text-decoration-line-through opacity-50 flex-grow-1' : 'flex-grow-1'}>
-                            <div className="fw-bold prod-title d-flex flex-wrap align-items-center gap-1" style={{ fontSize: '0.95rem' }}>
-                                {item.isRoute ? (
-                                    <span className="d-flex align-items-center gap-2 text-wrap">
-                                        {item.from} <FaArrowRight size={10} className="text-primary" /> {item.to}
-                                        <Badge bg="light" text="dark" className="border fw-normal p-1" style={{ fontSize: '0.65rem' }}>{item.transport}</Badge>
-                                    </span>
-                                ) : <span className="text-wrap">{item.name}</span>}
-                                {item.itemType === 'pack' && <Badge bg="info" className="prod-badge bg-opacity-10 text-info p-1" style={{ fontSize: '0.6rem' }}>PACK</Badge>}
+                            <div className="text-end ps-2">
+                                <div className="fw-bold prod-title" style={{ fontSize: '0.9rem' }}>
+                                    {item.itemType === 'buy' ? formatCurrency(item.estimatedPrice) : '---'}
+                                </div>
+                                <Button variant="link" size="sm" className="text-danger p-0 border-0 mt-1 opacity-25 hover-opacity-100" onClick={() => deleteShoppingItem(item.id)}>
+                                    <FaTrash size={12}/>
+                                </Button>
                             </div>
-                            <div className="prod-subtitle d-flex flex-wrap align-items-center gap-2 mt-1" style={{ fontSize: '0.8rem' }}>
-                                {item.targetDate && <span className="d-flex align-items-center gap-1"><FaClock size={10} /> {new Date(item.targetDate).toLocaleDateString()}</span>}
-                                {activeMode === 'daily' && <span>{categories.find(c => c.id === item.categoryId)?.label}</span>}
-                            </div>
-                            </div>
-                        </div>
-                        <div className="text-end ps-2">
-                            <div className={`fw-bold prod-title ${item.completed ? 'opacity-50' : ''}`} style={{ fontSize: '0.9rem' }}>
-                                {item.itemType === 'buy' ? formatCurrency(item.estimatedPrice) : '---'}
-                            </div>
-                            <Button variant="link" size="sm" className="text-danger p-0 border-0 mt-1 opacity-25 hover-opacity-100" onClick={() => deleteShoppingItem(item.id)}>
-                                <FaTrash size={12}/>
-                            </Button>
-                        </div>
-                      </div>
-
-                      {/* Professional Booking & Log Toolbar */}
-                      <div className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top border-light">
-                          <div className="d-flex gap-1 overflow-auto scrollbar-hidden">
-                              {['planned', 'booked', 'paid'].map((status) => (
-                                  <Badge 
-                                    key={status}
-                                    bg={item.bookingStatus === status ? (status === 'paid' ? 'success' : status === 'booked' ? 'warning' : 'secondary') : 'light'}
-                                    text={item.bookingStatus === status ? 'white' : 'dark'}
-                                    className={`cursor-pointer rounded-pill py-1 px-2 border d-flex align-items-center gap-1 x-small shadow-xs`}
-                                    style={{ cursor: 'pointer', transition: 'all 0.2s', opacity: item.completed ? 0.5 : 1 }}
-                                    onClick={() => !item.completed && updateShoppingItem(item.id, { bookingStatus: status })}
-                                  >
-                                      {status === 'paid' ? <FaCheck size={8}/> : status === 'booked' ? <FaTicketAlt size={8}/> : <FaRegClock size={8}/>}
-                                      {status.toUpperCase()}
-                                  </Badge>
-                              ))}
                           </div>
 
-                          <AnimatePresence>
-                              {item.completed && item.itemType === 'buy' && (
-                                  <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
-                                      <Button 
-                                        variant="success" size="sm" 
-                                        className="rounded-pill px-3 py-1 shadow-sm d-flex align-items-center gap-2 fw-bold"
-                                        style={{ fontSize: '0.75rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
-                                        onClick={() => openTransactionModal({ item: item.name, amount: item.estimatedPrice, category: item.categoryId })}
+                          <div className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top border-light">
+                              <div className="d-flex gap-1 overflow-auto scrollbar-hidden">
+                                  {['planned', 'booked', 'paid'].map((status) => (
+                                      <Badge 
+                                        key={status}
+                                        bg={item.bookingStatus === status ? (status === 'paid' ? 'success' : status === 'booked' ? 'warning' : 'secondary') : 'light'}
+                                        text={item.bookingStatus === status ? 'white' : 'dark'}
+                                        className={`cursor-pointer rounded-pill py-1 px-2 border d-flex align-items-center gap-1 x-small shadow-xs`}
+                                        style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                                        onClick={() => updateShoppingItem(item.id, { bookingStatus: status })}
                                       >
-                                          <FaReceipt size={12}/> Log Real Spend
-                                      </Button>
-                                  </motion.div>
-                              )}
-                          </AnimatePresence>
-                      </div>
-                    </div>
-                ))
-              ) : (
-                <div className="text-center py-5">
-                    {activeMode === 'daily' ? <FaShoppingBasket size={40} className="text-muted opacity-25 mb-3" /> : <FaSuitcase size={40} className="text-muted opacity-25 mb-3" />}
-                    <p className="prod-subtitle small">Your list is empty.</p>
-                </div>
-              )}
+                                          {status === 'paid' ? <FaCheck size={8}/> : status === 'booked' ? <FaTicketAlt size={8}/> : <FaRegClock size={8}/>}
+                                          {status.toUpperCase()}
+                                      </Badge>
+                                  ))}
+                              </div>
+                          </div>
+                        </motion.div>
+                    ))}
+
+                    {/* Completed Section Toggle */}
+                    {completedItems.length > 0 && (
+                        <div className="px-3 py-2 d-flex justify-content-between align-items-center cursor-pointer" style={{ background: 'var(--bg-color)', opacity: 0.8 }} onClick={() => setShowCompleted(!showCompleted)}>
+                            <span className="x-small fw-bold text-muted text-uppercase tracking-wider">
+                                {showCompleted ? 'Hide' : 'Show'} Finished Items ({completedItems.length})
+                            </span>
+                            <FaChevronDown style={{ transform: showCompleted ? 'rotate(180deg)' : 'none', transition: '0.3s' }} size={10} className="text-muted"/>
+                        </div>
+                    )}
+
+                    {/* Completed Items */}
+                    {showCompleted && completedItems.map((item) => (
+                        <motion.div layout key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="prod-list-item d-flex flex-column py-3 px-3" style={{ background: 'var(--bg-color)', opacity: 0.7 }}>
+                            <div className="d-flex align-items-start justify-content-between w-100">
+                                <div className="d-flex align-items-start gap-2 flex-grow-1">
+                                    <div className="prod-checkbox active mt-1" onClick={() => toggleShoppingItem(item.id, item.completed)} style={{ width: '22px', height: '22px', minWidth: '22px' }}><FaCheck size={10} /></div>
+                                    <div className="text-decoration-line-through flex-grow-1">
+                                        <div className="fw-bold prod-title" style={{ fontSize: '0.95rem' }}>{item.name}</div>
+                                        <div className="x-small text-muted">{categories.find(c => c.id === item.categoryId)?.label || 'Travel'}</div>
+                                    </div>
+                                </div>
+                                <div className="text-end ps-2 d-flex flex-column align-items-end gap-1">
+                                    <div className="fw-bold prod-title opacity-50" style={{ fontSize: '0.9rem' }}>{item.itemType === 'buy' ? formatCurrency(item.estimatedPrice) : '---'}</div>
+                                    <div className="d-flex gap-2 align-items-center">
+                                        {item.itemType === 'buy' && (
+                                            <Button 
+                                                variant="outline-success" size="sm" className="p-1 rounded-circle border-0" 
+                                                onClick={() => openTransactionModal({ item: item.name, amount: item.estimatedPrice, category: item.categoryId })}
+                                                title="Log Real Spend"
+                                            >
+                                                <FaReceipt size={12}/>
+                                            </Button>
+                                        )}
+                                        <Button variant="link" size="sm" className="text-danger p-0 border-0 opacity-25" onClick={() => deleteShoppingItem(item.id)}><FaTrash size={12}/></Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="text-center py-5">
+                      {activeMode === 'daily' ? <FaShoppingBasket size={40} className="text-muted opacity-25 mb-3" /> : <FaSuitcase size={40} className="text-muted opacity-25 mb-3" />}
+                      <p className="prod-subtitle small">Your list is empty.</p>
+                  </div>
+                )}
+              </AnimatePresence>
             </div>
           </Card>
         </Col>
 
         <Col lg={4}>
           <div className="row g-3">
-              {/* Intelligent Route Presets (Suggestion) */}
+              {/* Intelligent Route Presets Enhanced */}
               {activeMode === 'trip' && routePresets.length > 0 && (
                   <div className="col-12">
-                      <Card className="prod-card p-3 border-0 shadow-sm" style={{ background: 'rgba(99, 102, 241, 0.03)' }}>
-                          <h6 className="fw-bold prod-title mb-3 d-flex align-items-center gap-2 small"><FaHistory className="text-primary" /> Frequent Routes</h6>
-                          <div className="d-flex flex-column gap-2">
+                      <Card className="prod-card p-3 border-0 shadow-sm" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(167, 139, 250, 0.05) 100%)' }}>
+                          <h6 className="fw-bold prod-title mb-3 d-flex align-items-center gap-2 small">
+                              <FaHistory className="text-primary" /> Frequent Routes
+                          </h6>
+                          <div className="d-flex flex-row gap-3 overflow-auto pb-2 scrollbar-hidden">
                               {routePresets.map((r, i) => (
-                                  <Button 
-                                    key={i} variant="white" className="text-start border shadow-xs rounded-3 py-2 px-3 bg-white"
+                                  <div 
+                                    key={i} 
+                                    className="border shadow-xs rounded-4 p-3 hover-lift cursor-pointer flex-shrink-0"
+                                    style={{ minWidth: '220px', transition: 'all 0.2s', background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
                                     onClick={() => addRoutePreset(r)}
                                   >
-                                      <div className="d-flex justify-content-between align-items-center w-100">
-                                          <div className="small fw-bold">{r.from} ➔ {r.to}</div>
-                                          <Badge bg="primary" className="bg-opacity-10 text-primary x-small">{r.price}</Badge>
+                                      <div className="d-flex justify-content-between align-items-start mb-3">
+                                          <div className="p-2 bg-primary bg-opacity-10 rounded-3 text-primary">
+                                              {TRANSPORT_PRESETS.find(p => p.name === r.transport)?.icon || <FaCar />}
+                                          </div>
+                                          <Badge bg="primary" className="bg-opacity-10 text-primary x-small rounded-pill">
+                                              {formatCurrency(r.estimatedPrice)}
+                                          </Badge>
                                       </div>
-                                      <div className="x-small text-muted">{r.transport}</div>
-                                  </Button>
+
+                                      {/* Subway Map Visual */}
+                                      <div className="d-flex gap-3 align-items-stretch">
+                                          <div className="d-flex flex-column align-items-center gap-1">
+                                              <div className="rounded-circle border border-2 border-primary" style={{ width: '10px', height: '10px', background: 'var(--card-bg)' }}></div>
+                                              <div className="flex-grow-1 border-start border-2 border-primary border-opacity-25 my-1"></div>
+                                              <div className="rounded-circle bg-primary" style={{ width: '10px', height: '10px' }}></div>
+                                          </div>
+                                          <div className="d-flex flex-column justify-content-between py-0">
+                                              <div className="small fw-bold text-truncate" style={{ maxWidth: '140px' }}>{r.from}</div>
+                                              <div className="small fw-bold text-truncate" style={{ maxWidth: '140px' }}>{r.to}</div>
+                                          </div>
+                                      </div>
+
+                                      <div className="mt-3 d-flex justify-content-between align-items-center border-top pt-2" style={{ borderColor: 'var(--border-color)' }}>
+                                          <span className="x-small text-muted">{r.transport} • {r.count}x</span>
+                                          {r.minPrice !== r.maxPrice && (
+                                              <span className="x-small text-muted opacity-50">{r.minPrice}-{r.maxPrice}</span>
+                                          )}
+                                      </div>
+                                  </div>
                               ))}
                           </div>
                       </Card>
@@ -360,8 +445,8 @@ const SmartPlanner = () => {
                           <div className="d-flex flex-row flex-lg-column gap-2 overflow-auto scrollbar-hidden">
                               {TRANSPORT_PRESETS.map((p, i) => (
                                   <Button 
-                                    key={i} variant="light" className="text-start d-flex justify-content-between align-items-center rounded-3 py-2 px-3 border-0 bg-light flex-shrink-0 flex-lg-shrink-1"
-                                    style={{ minWidth: '140px' }}
+                                    key={i} variant="light" className="text-start d-flex justify-content-between align-items-center rounded-3 py-2 px-3 border-0 flex-shrink-0 flex-lg-shrink-1"
+                                    style={{ minWidth: '140px', background: 'var(--bg-color)', color: 'var(--text-primary)' }}
                                     onClick={() => addShoppingItem({ name: p.name, estimatedPrice: p.price, categoryId: 'Travel', tripId: selectedTripId, isRoute: false })}
                                   >
                                       <span className="x-small fw-bold d-flex align-items-center gap-2">{p.icon} {p.name}</span>

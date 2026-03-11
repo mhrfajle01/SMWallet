@@ -275,18 +275,19 @@ const TransactionHistory = ({ walletId = null }) => {
   return (
     <div className="pb-5">
       {/* Search and Filter */}
-      <Card className={`custom-card border-0 shadow-sm mb-4 ${isDarkMode ? 'bg-dark text-white' : ''}`}>
+      <Card className={`custom-card border-0 shadow-sm mb-4`} style={{ background: 'var(--card-bg)' }}>
         <Card.Body className="p-3">
           <Row className="g-3 align-items-center">
             {/* Search - Full on Mobile, 3 cols on Desktop */}
             <Col xs={12} lg={3}>
-              <InputGroup className={`shadow-none rounded-3 overflow-hidden border-0 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`}>
-                <InputGroup.Text className={`border-0 px-3 ${isDarkMode ? 'bg-secondary text-light' : 'bg-transparent text-muted'}`}>
+              <InputGroup className={`shadow-none rounded-3 overflow-hidden border`} style={{ background: 'var(--bg-color)', borderColor: 'var(--border-color)' }}>
+                <InputGroup.Text className={`border-0 px-3 bg-transparent text-muted`}>
                   <FaSearch />
                 </InputGroup.Text>
                 <Form.Control 
                   placeholder="Search..." 
-                  className={`border-0 py-2 shadow-none ${isDarkMode ? 'bg-secondary text-white' : 'bg-transparent'}`}
+                  className={`border-0 py-2 shadow-none bg-transparent`}
+                  style={{ color: 'var(--text-primary)' }}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -300,7 +301,8 @@ const TransactionHistory = ({ walletId = null }) => {
                         <Form.Select 
                             value={filterType} 
                             onChange={(e) => setFilterType(e.target.value)}
-                            className={`border-0 fw-bold shadow-none rounded-3 py-2 w-100 ${isDarkMode ? 'bg-secondary text-info' : 'bg-primary bg-opacity-10 text-primary'}`}
+                            className={`border fw-bold shadow-none rounded-3 py-2 w-100`}
+                            style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}
                         >
                             <option value="all">All Types</option>
                             <option value="income">In (Income)</option>
@@ -313,7 +315,8 @@ const TransactionHistory = ({ walletId = null }) => {
                         <Form.Select 
                             value={sortOrder} 
                             onChange={(e) => setSortOrder(e.target.value)}
-                            className={`border-0 fw-bold shadow-none rounded-3 py-2 w-100 ${isDarkMode ? 'bg-secondary text-light' : 'bg-light text-dark'}`}
+                            className={`border fw-bold shadow-none rounded-3 py-2 w-100`}
+                            style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}
                         >
                             <option value="created-desc">Recently Added</option>
                             <option value="date-desc">Newest Date</option>
@@ -326,19 +329,21 @@ const TransactionHistory = ({ walletId = null }) => {
 
             {/* Buttons - Full row on Mobile, Auto on Desktop */}
             <Col xs={12} lg={viewMode === 'list' ? 4 : 9} className="text-lg-end text-center">
-                <div className={`d-inline-flex flex-wrap justify-content-center gap-1 rounded-4 p-1 ${isDarkMode ? 'bg-secondary' : 'bg-light'}`} style={{ width: 'fit-content' }}>
+                <div className={`d-inline-flex flex-wrap justify-content-center gap-1 rounded-4 p-1 shadow-sm border`} style={{ width: 'fit-content', background: 'var(--bg-color)', borderColor: 'var(--border-color)' }}>
                     <Button 
-                        variant={viewMode === 'list' ? (isDarkMode ? 'dark shadow-sm' : 'white shadow-sm') : 'transparent'} 
+                        variant={viewMode === 'list' ? 'primary' : 'transparent'} 
                         size="sm" 
-                        className={`rounded-pill border-0 px-3 ${viewMode === 'list' ? '' : (isDarkMode ? 'text-light opacity-50' : 'text-muted')}`}
+                        className={`rounded-pill border-0 px-3 ${viewMode === 'list' ? 'shadow-sm' : 'text-muted'}`}
+                        style={viewMode === 'list' ? { background: 'var(--primary-gradient)' } : {}}
                         onClick={() => setViewMode('list')}
                     >
                         <FaList />
                     </Button>
                     <Button 
-                        variant={viewMode === 'table' ? (isDarkMode ? 'dark shadow-sm' : 'white shadow-sm') : 'transparent'} 
+                        variant={viewMode === 'table' ? 'primary' : 'transparent'} 
                         size="sm" 
-                        className={`rounded-pill border-0 px-3 ${viewMode === 'table' ? '' : (isDarkMode ? 'text-light opacity-50' : 'text-muted')}`}
+                        className={`rounded-pill border-0 px-3 ${viewMode === 'table' ? 'shadow-sm' : 'text-muted'}`}
+                        style={viewMode === 'table' ? { background: 'var(--primary-gradient)' } : {}}
                         onClick={() => setViewMode('table')}
                     >
                         <FaTable />
@@ -347,7 +352,7 @@ const TransactionHistory = ({ walletId = null }) => {
                     <Button 
                         variant="transparent" 
                         size="sm" 
-                        className={`rounded-pill border-0 px-2 ${isDarkMode ? 'text-light hover-bg-dark' : 'text-success hover-bg-white'}`}
+                        className={`rounded-pill border-0 px-2 text-success`}
                         onClick={handleExportCSV}
                         title="Download CSV"
                     >
@@ -356,7 +361,7 @@ const TransactionHistory = ({ walletId = null }) => {
                     <Button 
                         variant="transparent" 
                         size="sm" 
-                        className={`rounded-pill border-0 px-2 ${isDarkMode ? 'text-light hover-bg-dark' : 'text-danger hover-bg-white'}`}
+                        className={`rounded-pill border-0 px-2 text-danger`}
                         onClick={() => generateFilteredPDF(filteredTransactions)}
                         title="Download PDF"
                     >
@@ -415,7 +420,7 @@ const TransactionHistory = ({ walletId = null }) => {
                     whileHover={{ x: 5 }}
                     className="mb-2"
                 >
-                    <Card className={`custom-card border-0 shadow-sm overflow-hidden ${isDarkMode ? 'bg-dark text-light border-secondary' : ''}`}>
+                    <Card className={`custom-card border-0 shadow-sm overflow-hidden`} style={{ background: 'var(--card-bg)' }}>
                     <Card.Body className="p-3">
                         <div className="d-flex align-items-center">
                         <div className={`rounded-circle p-2 me-3 d-flex align-items-center justify-content-center bg-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'} bg-opacity-10 text-${t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'primary'}`} style={{ width: '45px', height: '45px' }}>
@@ -425,9 +430,9 @@ const TransactionHistory = ({ walletId = null }) => {
                         <div className="flex-grow-1 overflow-hidden">
                             <div className="d-flex justify-content-between align-items-start">
                             <div className="overflow-hidden">
-                                <div className="fw-bold text-truncate">{t.label}</div>
+                                <div className="fw-bold text-truncate" style={{ color: 'var(--text-primary)' }}>{t.label}</div>
                                 <div className="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                                <Badge bg={isDarkMode ? 'secondary' : 'light'} text={isDarkMode ? 'light' : 'secondary'} className={`fw-normal border border-opacity-10 px-2 py-1 ${isDarkMode ? 'border-secondary' : 'border-secondary'}`} style={{ fontSize: '0.65rem' }}>
+                                <Badge bg="light" text="dark" className={`fw-normal border border-opacity-10 px-2 py-1`} style={{ fontSize: '0.65rem', background: 'var(--bg-color)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
                                     {t.category || 'Other'}
                                 </Badge>
                                 {t.walletName && (
@@ -439,7 +444,7 @@ const TransactionHistory = ({ walletId = null }) => {
                                     <small className="text-muted ms-1" style={{ fontSize: '0.65rem' }}>{t.date}</small>
                                 )}
                                 {t.time && (
-                                    <small className="text-muted ms-1 border-start ps-2" style={{ fontSize: '0.65rem' }}>{t.time}</small>
+                                    <small className="text-muted ms-1 border-start ps-2" style={{ fontSize: '0.65rem', borderColor: 'var(--border-color)' }}>{t.time}</small>
                                 )}
                                 </div>
                             </div>
@@ -451,14 +456,14 @@ const TransactionHistory = ({ walletId = null }) => {
                                 </div>
                                 <div className="d-flex justify-content-end gap-2 mt-1">
                                 <Button 
-                                    variant={isDarkMode ? 'outline-secondary' : 'light'} 
-                                    className={`p-0 opacity-50 ${isDarkMode ? 'text-info border-0' : 'text-primary'}`}
+                                    variant="link" 
+                                    className={`p-0 opacity-50 text-primary border-0`}
                                     onClick={() => setEditingTransaction(t)}
                                 >
                                     <FaEdit size={12} />
                                 </Button>
                                 <Button 
-                                    variant={isDarkMode ? 'outline-secondary' : 'light'} 
+                                    variant="link" 
                                     className="text-danger p-0 opacity-50 border-0" 
                                     onClick={() => handleDelete(t)}
                                 >

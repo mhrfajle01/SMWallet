@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useMemo } from '
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { useProductivity } from './ProductivityContext';
+import { playSound } from '../utils/soundEffects';
 import { 
   collection, 
   onSnapshot, 
@@ -34,6 +35,7 @@ export const AppProvider = ({ children }) => {
   const [goalDeposits, setGoalDeposits] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [trashItems, setTrashItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Global Stats
@@ -83,21 +85,22 @@ export const AppProvider = ({ children }) => {
     const baseQuery = (coll) => query(collection(db, coll), where('uid', '==', user.uid));
 
     const unsubWallets = onSnapshot(baseQuery('wallets'), (s) => 
-      setWallets(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+      setWallets(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
     
-    const unsubBudgets = onSnapshot(baseQuery('budgets'), (s) => setBudgets(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-    const unsubIncomes = onSnapshot(baseQuery('incomes'), (s) => setIncomes(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubTransfers = onSnapshot(baseQuery('transfers'), (s) => setTransfers(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubGoals = onSnapshot(baseQuery('goals'), (s) => setGoals(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
-    const unsubMeals = onSnapshot(baseQuery('meals'), (s) => setMeals(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubPurchases = onSnapshot(baseQuery('purchases'), (s) => setPurchases(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubDeposits = onSnapshot(baseQuery('goal_deposits'), (s) => setGoalDeposits(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+    const unsubBudgets = onSnapshot(baseQuery('budgets'), (s) => setBudgets(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+    const unsubIncomes = onSnapshot(baseQuery('incomes'), (s) => setIncomes(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
+    const unsubTransfers = onSnapshot(baseQuery('transfers'), (s) => setTransfers(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
+    const unsubGoals = onSnapshot(baseQuery('goals'), (s) => setGoals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+    const unsubMeals = onSnapshot(baseQuery('meals'), (s) => setMeals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
+    const unsubPurchases = onSnapshot(baseQuery('purchases'), (s) => setPurchases(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
+    const unsubDeposits = onSnapshot(baseQuery('goal_deposits'), (s) => setGoalDeposits(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+    const unsubTrash = onSnapshot(baseQuery('trash'), (s) => setTrashItems(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.deletedAt?.seconds || 0) - (a.deletedAt?.seconds || 0))));
 
     const timeout = setTimeout(() => setLoading(false), 1500);
 
     return () => { 
         unsubCats(); unsubWallets(); unsubBudgets(); unsubIncomes(); unsubTransfers(); 
-        unsubGoals(); unsubMeals(); unsubPurchases(); unsubDeposits(); 
+        unsubGoals(); unsubMeals(); unsubPurchases(); unsubDeposits(); unsubTrash();
         clearTimeout(timeout);
     };
   }, [user]);
@@ -171,11 +174,48 @@ export const AppProvider = ({ children }) => {
     await deleteDoc(doc(db, 'budgets', `${user.uid}_${catId}`));
   };
 
+  const moveToTrash = async (collectionName, id, data) => {
+    try {
+        const { id: _, ...cleanData } = data;
+        await addDoc(collection(db, 'trash'), {
+          uid: user.uid,
+          userId: user.uid,
+          originalCollection: collectionName,
+          originalId: id,
+          data: cleanData,
+          deletedAt: serverTimestamp()
+        });
+        await deleteDoc(doc(db, collectionName, id));
+        playSound('pop');
+    } catch (e) {
+        console.error(`Error moving ${collectionName} to trash:`, e);
+    }
+  };
+
+  const restoreFromTrash = async (trashItem) => {
+    const { originalCollection, originalId, data } = trashItem;
+    await setDoc(doc(db, originalCollection, originalId), { ...data, updatedAt: serverTimestamp() });
+    await deleteDoc(doc(db, 'trash', trashItem.id));
+  };
+
+  const deletePermanently = async (trashItemId) => {
+    await deleteDoc(doc(db, 'trash', trashItemId));
+  };
+
+  const emptyTrash = async () => {
+    for (const item of trashItems) {
+      await deleteDoc(doc(db, 'trash', item.id));
+    }
+  };
+
   const addWallet = async (name, balance, type = 'asset') => {
     await addDoc(collection(db, 'wallets'), { uid: user.uid, userId: user.uid, name, balance: Number(balance), type, createdAt: serverTimestamp() });
   };
 
-  const deleteWallet = async (id) => await deleteDoc(doc(db, 'wallets', id));
+  const deleteWallet = async (id) => {
+    const wallet = wallets.find(w => w.id === id);
+    if (wallet) await moveToTrash('wallets', id, wallet);
+  };
 
   const addIncome = async (incomeData) => {
     const amount = Number(incomeData.amount || 0);
@@ -199,7 +239,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteIncome = async (id, walletId, amount) => {
-    await deleteDoc(doc(db, 'incomes', id));
+    const income = incomes.find(i => i.id === id);
+    if (income) await moveToTrash('incomes', id, income);
     const wallet = wallets.find(w => w.id === walletId);
     if (wallet) await updateDoc(doc(db, 'wallets', walletId), { balance: Number(wallet.balance || 0) - Number(amount || 0) });
   };
@@ -219,7 +260,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteTransfer = async (id, sourceId, destId, amount) => {
-    await deleteDoc(doc(db, 'transfers', id));
+    const transfer = transfers.find(t => t.id === id);
+    if (transfer) await moveToTrash('transfers', id, transfer);
     const sW = wallets.find(w => w.id === sourceId);
     const dW = wallets.find(w => w.id === destId);
     const numAmt = Number(amount || 0);
@@ -235,7 +277,10 @@ export const AppProvider = ({ children }) => {
     await updateDoc(doc(db, 'goals', id), { ...goalData, targetAmount: Number(goalData.targetAmount || 0), savedAmount: Number(goalData.savedAmount || 0) });
   };
 
-  const deleteGoal = async (id) => await deleteDoc(doc(db, 'goals', id));
+  const deleteGoal = async (id) => {
+    const goal = goals.find(g => g.id === id);
+    if (goal) await moveToTrash('goals', id, goal);
+  };
 
   const depositToGoal = async (goalId, walletId, amount) => {
     const numAmount = Number(amount || 0);
@@ -249,7 +294,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteGoalDeposit = async (id, goalId, walletId, amount) => {
-    await deleteDoc(doc(db, 'goal_deposits', id));
+    const deposit = goalDeposits.find(d => d.id === id);
+    if (deposit) await moveToTrash('goal_deposits', id, deposit);
     const goal = goals.find(g => g.id === goalId);
     const wallet = wallets.find(w => w.id === walletId);
     const numAmt = Number(amount || 0);
@@ -262,14 +308,20 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateMeal = async (id, mealData) => await updateDoc(doc(db, 'meals', id), { ...mealData, amount: Number(mealData.amount || 0) });
-  const deleteMeal = async (id) => await deleteDoc(doc(db, 'meals', id));
+  const deleteMeal = async (id) => {
+    const meal = meals.find(m => m.id === id);
+    if (meal) await moveToTrash('meals', id, meal);
+  };
 
   const addPurchase = async (purchaseData) => {
     await addDoc(collection(db, 'purchases'), { uid: user.uid, userId: user.uid, ...purchaseData, amount: Number(purchaseData.amount || 0), createdAt: serverTimestamp() });
   };
 
   const updatePurchase = async (id, purchaseData) => await updateDoc(doc(db, 'purchases', id), { ...purchaseData, amount: Number(purchaseData.amount || 0) });
-  const deletePurchase = async (id) => await deleteDoc(doc(db, 'purchases', id));
+  const deletePurchase = async (id) => {
+    const purchase = purchases.find(p => p.id === id);
+    if (purchase) await moveToTrash('purchases', id, purchase);
+  };
 
   const updateBudget = async (categoryId, limit) => {
     const bId = `${user.uid}_${categoryId}`;
@@ -297,9 +349,10 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       wallets: calculatedWallets,
-      meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, loading,
+      meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, trashItems, loading,
       addCategory, deleteCategory, addWallet, deleteWallet, addGoal, updateGoal, deleteGoal, depositToGoal, deleteGoalDeposit,
-      addMeal, updateMeal, deleteMeal, addPurchase, updatePurchase, deletePurchase, updateBudget, deleteBudget, addIncome, updateIncome, deleteIncome, transferFunds, deleteTransfer, getSmartRecents
+      addMeal, updateMeal, deleteMeal, addPurchase, updatePurchase, deletePurchase, updateBudget, deleteBudget, addIncome, updateIncome, deleteIncome, transferFunds, deleteTransfer, getSmartRecents,
+      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash
     }}>
       {children}
     </AppContext.Provider>
