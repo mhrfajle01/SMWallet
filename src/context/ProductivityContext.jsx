@@ -10,7 +10,7 @@ const ProductivityContext = createContext();
 
 export const useProductivity = () => useContext(ProductivityContext);
 
-export const ProductivityProvider = ({ children }) => {
+export const ProductivityProvider = ({ children, onEarnXP }) => {
   const { user } = useAuth();
   
   const [habits, setHabits] = useState([]);
@@ -78,39 +78,56 @@ export const ProductivityProvider = ({ children }) => {
   };
 
   // Habits
-  const addHabit = async (title) => await addDoc(collection(db, 'habits'), { userId: user.uid, uid: user.uid, title, createdAt: serverTimestamp() });
+  const addHabit = async (title) => {
+    await addDoc(collection(db, 'habits'), { userId: user.uid, uid: user.uid, title, createdAt: serverTimestamp() });
+    if (onEarnXP) onEarnXP(10);
+  };
   
   const toggleHabit = async (habitId, date) => {
     const log = habitLogs.find(l => l.habitId === habitId && l.date === date);
-    if (log) await updateDoc(doc(db, 'habitLogs', log.id), { status: !log.status });
-    else await addDoc(collection(db, 'habitLogs'), { userId: user.uid, uid: user.uid, habitId, date, status: true, createdAt: serverTimestamp() });
+    if (log) {
+        await updateDoc(doc(db, 'habitLogs', log.id), { status: !log.status });
+        if (!log.status && onEarnXP) onEarnXP(5);
+    } else {
+        await addDoc(collection(db, 'habitLogs'), { userId: user.uid, uid: user.uid, habitId, date, status: true, createdAt: serverTimestamp() });
+        if (onEarnXP) onEarnXP(5);
+    }
   };
 
   // Todos
-  const addTodo = async (title, priority = 'Medium', dueDate = '') => 
+  const addTodo = async (title, priority = 'Medium', dueDate = '') => {
     await addDoc(collection(db, 'todos'), { userId: user.uid, uid: user.uid, title, priority, dueDate, completed: false, createdAt: serverTimestamp() });
+    if (onEarnXP) onEarnXP(10);
+  }
 
   const toggleTodo = async (todoId, currentStatus) => {
     await updateDoc(doc(db, 'todos', todoId), { completed: !currentStatus });
-    if (!currentStatus) playSound('pop');
+    if (!currentStatus) {
+        playSound('pop');
+        if (onEarnXP) onEarnXP(15);
+    }
   };
 
   // Notes
-  const addNote = async (title, content, color = '#ffffff') => 
+  const addNote = async (title, content, color = '#ffffff') => {
     await addDoc(collection(db, 'notes'), { userId: user.uid, uid: user.uid, title, content, color, pinned: false, createdAt: serverTimestamp() });
+    if (onEarnXP) onEarnXP(5);
+  }
 
   const updateNote = async (id, data) => await updateDoc(doc(db, 'notes', id), data);
 
   // --- Smart Planner (Shopping & Trips) ---
   
   const addTrip = async (tripData) => {
-    return await addDoc(collection(db, 'trips'), {
+    const docRef = await addDoc(collection(db, 'trips'), {
         userId: user.uid,
         uid: user.uid,
         passengers: 1,
         ...tripData,
         createdAt: serverTimestamp()
     });
+    if (onEarnXP) onEarnXP(20);
+    return docRef;
   };
 
   const updateTrip = async (id, data) => await updateDoc(doc(db, 'trips', id), data);
@@ -130,6 +147,7 @@ export const ProductivityProvider = ({ children }) => {
     if (itemData.targetDate) {
         addTodo(`Reminder: ${itemData.name}`, 'Medium', itemData.targetDate);
     }
+    if (onEarnXP) onEarnXP(5);
     return docRef;
   };
 
@@ -137,7 +155,10 @@ export const ProductivityProvider = ({ children }) => {
 
   const toggleShoppingItem = async (id, currentStatus) => {
     await updateDoc(doc(db, 'shoppingList', id), { completed: !currentStatus });
-    if (!currentStatus) playSound('pop');
+    if (!currentStatus) {
+        playSound('pop');
+        if (onEarnXP) onEarnXP(10);
+    }
   };
 
   const deleteHabit = async (id) => {
@@ -151,7 +172,7 @@ export const ProductivityProvider = ({ children }) => {
   };
 
   const deleteNote = async (id) => {
-    const note = notes.find(n => n.id === id);
+    const note = notes.find(n => n.id === note.id);
     if (note) await moveToTrash('notes', id, note);
   };
 

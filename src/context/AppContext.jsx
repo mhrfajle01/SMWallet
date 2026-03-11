@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
-import { useProductivity } from './ProductivityContext';
 import { playSound } from '../utils/soundEffects';
 import { 
   collection, 
@@ -18,13 +17,12 @@ import {
   or 
 } from 'firebase/firestore';
 
-const AppContext = createContext();
+export const AppContext = createContext();
 
 export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
   const { user } = useAuth();
-  const productivity = useProductivity(); // Get productivity context
   
   const [wallets, setWallets] = useState([]);
   const [meals, setMeals] = useState([]);
@@ -36,6 +34,12 @@ export const AppProvider = ({ children }) => {
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [trashItems, setTrashItems] = useState([]);
+  const [avatarState, setAvatarState] = useState({
+    level: 1,
+    xp: 0,
+    health: 100,
+    lastUpdate: null
+  });
   const [loading, setLoading] = useState(true);
 
   // Global Stats
@@ -51,6 +55,23 @@ export const AppProvider = ({ children }) => {
         savingsChange: 0
     }
   });
+
+  const earnXP = async (amount) => {
+    if (!user || !avatarState.id) return;
+    const newXP = (avatarState.xp || 0) + amount;
+    const newLevel = Math.floor(newXP / 100) + 1;
+    const leveledUp = newLevel > (avatarState.level || 1);
+    
+    await updateDoc(doc(db, 'avatar', avatarState.id), {
+      xp: newXP,
+      level: newLevel,
+      lastUpdate: serverTimestamp()
+    });
+    
+    if (leveledUp) {
+      playSound('levelUp');
+    }
+  };
 
   // Initialization & Categories
   useEffect(() => {
@@ -94,13 +115,30 @@ export const AppProvider = ({ children }) => {
     const unsubMeals = onSnapshot(baseQuery('meals'), (s) => setMeals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
     const unsubPurchases = onSnapshot(baseQuery('purchases'), (s) => setPurchases(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
     const unsubDeposits = onSnapshot(baseQuery('goal_deposits'), (s) => setGoalDeposits(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
-    const unsubTrash = onSnapshot(baseQuery('trash'), (s) => setTrashItems(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.deletedAt?.seconds || 0) - (a.deletedAt?.seconds || 0))));
+    const unsubTrash = onSnapshot(baseQuery('trash'), (s) => {
+      try {
+        setTrashItems(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => {
+          const timeA = a.deletedAt?.seconds || 0;
+          const timeB = b.deletedAt?.seconds || 0;
+          return timeB - timeA;
+        }));
+      } catch (e) {
+        console.error("Error in trash snapshot:", e);
+      }
+    });
+    const unsubAvatar = onSnapshot(baseQuery('avatar'), (s) => {
+      if (!s.empty) setAvatarState({ ...s.docs[0].data(), id: s.docs[0].id });
+      else {
+        const initial = { uid: user.uid, userId: user.uid, level: 1, xp: 0, health: 100, createdAt: serverTimestamp() };
+        addDoc(collection(db, 'avatar'), initial);
+      }
+    });
 
     const timeout = setTimeout(() => setLoading(false), 1500);
 
     return () => { 
         unsubCats(); unsubWallets(); unsubBudgets(); unsubIncomes(); unsubTransfers(); 
-        unsubGoals(); unsubMeals(); unsubPurchases(); unsubDeposits(); unsubTrash();
+        unsubGoals(); unsubMeals(); unsubPurchases(); unsubDeposits(); unsubTrash(); unsubAvatar();
         clearTimeout(timeout);
     };
   }, [user]);
@@ -210,6 +248,7 @@ export const AppProvider = ({ children }) => {
 
   const addWallet = async (name, balance, type = 'asset') => {
     await addDoc(collection(db, 'wallets'), { uid: user.uid, userId: user.uid, name, balance: Number(balance), type, createdAt: serverTimestamp() });
+    await earnXP(10);
   };
 
   const deleteWallet = async (id) => {
@@ -222,6 +261,7 @@ export const AppProvider = ({ children }) => {
     await addDoc(collection(db, 'incomes'), { uid: user.uid, userId: user.uid, ...incomeData, amount, createdAt: serverTimestamp() });
     const wallet = wallets.find(w => w.id === incomeData.walletId);
     if (wallet) await updateDoc(doc(db, 'wallets', incomeData.walletId), { balance: Number(wallet.balance || 0) + amount });
+    await earnXP(15);
   };
 
   const updateIncome = async (id, oldData, newData) => {
@@ -256,6 +296,7 @@ export const AppProvider = ({ children }) => {
         uid: user.uid, userId: user.uid, sourceId, destId, sourceName: sW.name, destName: dW.name, 
         amount: numAmount, date: new Date().toISOString().split('T')[0], createdAt: serverTimestamp() 
       });
+      await earnXP(5);
     }
   };
 
@@ -271,6 +312,7 @@ export const AppProvider = ({ children }) => {
 
   const addGoal = async (goalData) => {
     await addDoc(collection(db, 'goals'), { uid: user.uid, userId: user.uid, ...goalData, targetAmount: Number(goalData.targetAmount || 0), savedAmount: Number(goalData.savedAmount || 0), createdAt: serverTimestamp() });
+    await earnXP(10);
   };
 
   const updateGoal = async (id, goalData) => {
@@ -291,6 +333,7 @@ export const AppProvider = ({ children }) => {
     await updateDoc(doc(db, 'goals', goalId), { savedAmount: newSaved });
     const wallet = wallets.find(w => w.id === walletId);
     if (wallet) await updateDoc(doc(db, 'wallets', walletId), { balance: Number(wallet.balance || 0) - numAmount });
+    await earnXP(20);
   };
 
   const deleteGoalDeposit = async (id, goalId, walletId, amount) => {
@@ -305,6 +348,7 @@ export const AppProvider = ({ children }) => {
 
   const addMeal = async (mealData) => {
     await addDoc(collection(db, 'meals'), { uid: user.uid, userId: user.uid, ...mealData, amount: Number(mealData.amount || 0), createdAt: serverTimestamp() });
+    await earnXP(5);
   };
 
   const updateMeal = async (id, mealData) => await updateDoc(doc(db, 'meals', id), { ...mealData, amount: Number(mealData.amount || 0) });
@@ -315,6 +359,7 @@ export const AppProvider = ({ children }) => {
 
   const addPurchase = async (purchaseData) => {
     await addDoc(collection(db, 'purchases'), { uid: user.uid, userId: user.uid, ...purchaseData, amount: Number(purchaseData.amount || 0), createdAt: serverTimestamp() });
+    await earnXP(5);
   };
 
   const updatePurchase = async (id, purchaseData) => await updateDoc(doc(db, 'purchases', id), { ...purchaseData, amount: Number(purchaseData.amount || 0) });
@@ -349,10 +394,10 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       wallets: calculatedWallets,
-      meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, trashItems, loading,
+      meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, trashItems, avatarState, loading,
       addCategory, deleteCategory, addWallet, deleteWallet, addGoal, updateGoal, deleteGoal, depositToGoal, deleteGoalDeposit,
       addMeal, updateMeal, deleteMeal, addPurchase, updatePurchase, deletePurchase, updateBudget, deleteBudget, addIncome, updateIncome, deleteIncome, transferFunds, deleteTransfer, getSmartRecents,
-      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash
+      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash, earnXP
     }}>
       {children}
     </AppContext.Provider>

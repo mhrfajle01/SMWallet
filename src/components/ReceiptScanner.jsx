@@ -4,8 +4,10 @@ import { FaCamera, FaFileUpload, FaMagic, FaCheck, FaTimes, FaExclamationTriangl
 import { createWorker } from 'tesseract.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { aiService } from '../utils/aiService';
+import { useAI } from '../context/AIContext';
 
 const ReceiptScanner = ({ onScanComplete, onCancel }) => {
+  const { aiSettings } = useAI();
   const [isProcessing, setIsDarkMode] = useState(false);
   const [scanMode, setScanMode] = useState('photo'); // 'photo' or 'text'
   const [pasteInput, setPasteInput] = useState('');
@@ -33,8 +35,8 @@ const ReceiptScanner = ({ onScanComplete, onCancel }) => {
       
       setProgress(90);
 
-      // AI Refinement using DeepSeek
-      const aiParsed = await aiService.parseReceiptWithAI(text);
+      // AI Refinement using current settings
+      const aiParsed = await aiService.parseReceiptWithAI(text, aiSettings);
       
       if (aiParsed) {
           onScanComplete({ 

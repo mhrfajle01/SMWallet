@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Row, Col, ProgressBar, Badge, Button } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
 import { useProductivity } from '../context/ProductivityContext';
@@ -10,17 +10,20 @@ import {
 } from 'react-icons/fa';
 import FinancialCalendar from './FinancialCalendar';
 import TransactionHistory from './TransactionHistory';
+import FinancialAvatar from './FinancialAvatar';
+import { db } from '../firebase';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import '../Dashboard.css';
 
 const DashboardView = () => {
-  const { globalStats, meals, purchases, wallets, categories, budgets, incomes, transfers, goals } = useApp();
-  const { shoppingList, trips, todos } = useProductivity();
+  const { globalStats, meals, purchases, wallets, categories, budgets, incomes, transfers, goals, avatarState } = useApp();
+  const { shoppingList, trips, todos, habitLogs } = useProductivity();
   const { openTransactionModal } = useUI();
   const [viewMode, setViewMode] = useState('overview'); // 'overview' or 'history'
 
   const formatCurrency = (amount) => new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(amount || 0);
 
-  // Suggestion #2: Burn Rate Calculation
+  // Burn Rate Calculation
   const burnRate = useMemo(() => {
     const totalBudget = (budgets || []).reduce((a, c) => a + (Number(c.limit) || 0), 0);
     const spent = globalStats.totalSpent || 0;
@@ -34,7 +37,7 @@ const DashboardView = () => {
     };
   }, [budgets, globalStats]);
 
-  // Suggestion #3: Expense breakdown for Donut Chart
+  // Expense breakdown for Donut Chart
   const categoryData = useMemo(() => {
     const data = {};
     const now = new Date();
@@ -59,30 +62,67 @@ const DashboardView = () => {
     };
   }, [meals, purchases, categories]);
 
-  // Suggestion #6: Upcoming Logistics Feed
+  // Upcoming Logistics Feed
   const upcomingFeed = useMemo(() => {
     const feed = [];
     const today = new Date().toISOString().split('T')[0];
 
-    // Tasks
-    todos.filter(t => !t.completed && t.dueDate).forEach(t => {
-        feed.push({ type: 'task', title: t.title, date: t.dueDate, priority: t.priority, icon: <FaTasks /> });
+    (todos || []).filter(t => !t.completed && t.dueDate === today).forEach(t => feed.push({ type: 'task', label: t.title, icon: <FaTasks className="text-info"/> }));
+    
+    (budgets || []).forEach(b => {
+        const spent = globalStats.totalSpent;
+        if (spent > Number(b.limit) * 0.8) feed.push({ type: 'budget', label: `Low budget: ${categories.find(c => c.id === b.categoryId)?.label}`, icon: <FaLightbulb className="text-warning"/> });
     });
 
-    // Trips
-    trips.forEach(trip => {
-        if (trip.startDate >= today) {
-            feed.push({ type: 'trip', title: `Trip: ${trip.name}`, date: trip.startDate, location: trip.location, icon: <FaPlane className="text-primary"/> });
+    return feed.slice(0, 3);
+  }, [todos, budgets, globalStats, categories]);
+
+  // --- Financial Avatar Progression Logic ---
+  useEffect(() => {
+    if (!avatarState?.id) return;
+
+    const calculateNewState = () => {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // XP from Productivity
+        const doneTasks = todos.filter(t => t.completed).length;
+        const doneHabits = habitLogs.filter(l => l.date === today && l.status).length;
+        const totalXP = (doneTasks * 10) + (doneHabits * 5);
+
+        // Health from Budget
+        const totalBudget = (budgets || []).reduce((a, c) => a + (Number(c.limit) || 0), 0);
+        const spent = globalStats.totalSpent || 0;
+        let newHealth = 100;
+        
+        if (totalBudget > 0 && spent > totalBudget) {
+            const overPercent = ((spent - totalBudget) / totalBudget) * 100;
+            newHealth = Math.max(10, 100 - (overPercent * 2));
         }
-    });
 
-    return feed.sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 5);
-  }, [todos, trips]);
+        const newLevel = Math.floor(totalXP / 100) + 1;
+
+        if (newLevel !== avatarState.level || totalXP !== avatarState.xp || Math.abs(newHealth - avatarState.health) > 5) {
+            updateDoc(doc(db, 'avatar', avatarState.id), {
+                level: newLevel,
+                xp: totalXP,
+                health: Math.round(newHealth),
+                updatedAt: serverTimestamp()
+            });
+        }
+    };
+
+    const timer = setTimeout(calculateNewState, 3000);
+    return () => clearTimeout(timer);
+  }, [todos, habitLogs, globalStats.totalSpent, avatarState, budgets]);
+
+  if (viewMode === 'history') return <TransactionHistory />;
 
   return (
     <div className="dash-container pb-5">
+      <FinancialAvatar />
+      
       {/* Visual Pulse Header (#1) */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="pulse-header shadow-lg">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="pulse-header shadow-lg mb-4">
           <Row className="align-items-center">
               <Col md={7}>
                   <small className="text-uppercase fw-bold text-white opacity-90 letter-spacing-1">Total Net Worth</small>
@@ -116,7 +156,6 @@ const DashboardView = () => {
               </div>
               <div className="position-relative py-2">
                   <ProgressBar now={burnRate.percentSpent} variant={burnRate.isWarning ? "danger" : "primary"} style={{ height: '12px', background: 'var(--bg-color)' }} className="rounded-pill border shadow-inner" />
-                  {/* Time Marker */}
                   <div 
                     className="position-absolute top-0 border-start border-2 border-warning h-100" 
                     style={{ left: `${burnRate.timePercent}%`, zIndex: 5 }}
@@ -174,31 +213,29 @@ const DashboardView = () => {
               </Card>
           </Col>
 
-          {/* Upcoming Logistics (#6) */}
+          {/* Quick Shortcuts (#4) */}
           <Col lg={5}>
               <Card className="dash-card h-100 border-0">
                   <Card.Header className="bg-transparent border-0 p-4">
-                      <h5 className="mb-0 fw-bold prod-title d-flex align-items-center gap-2"><FaCalendarAlt className="text-indigo" style={{ color: '#6366f1' }}/> Next 7 Days</h5>
+                      <h5 className="mb-0 fw-bold prod-title d-flex align-items-center gap-2"><FaPlus className="text-primary"/> Quick Actions</h5>
                   </Card.Header>
-                  <Card.Body className="px-4 pb-4 pt-0">
-                      {upcomingFeed.length > 0 ? (
-                          upcomingFeed.map((item, idx) => (
-                              <div key={idx} className={`feed-item ${item.priority === 'High' ? 'high' : ''} ${item.type === 'trip' ? 'money' : ''}`}>
-                                  <div className="d-flex justify-content-between align-items-start">
-                                      <div className="d-flex align-items-center gap-2">
+                  <Card.Body className="p-4 pt-0">
+                      <div className="d-grid gap-3">
+                          <Button variant="primary" className="btn-primary-custom py-3 fw-bold shadow-sm d-flex align-items-center justify-content-between" onClick={() => openTransactionModal()}>
+                              <span>Log Transaction</span>
+                              <FaPlus />
+                          </Button>
+                          <div className="row g-3">
+                              {upcomingFeed.map((item, i) => (
+                                  <div key={i} className="col-12">
+                                      <div className="p-3 rounded-4 bg-light bg-opacity-10 border border-light d-flex align-items-center gap-3">
                                           {item.icon}
-                                          <span className="small fw-bold prod-title">{item.title}</span>
+                                          <span className="small fw-bold">{item.label}</span>
                                       </div>
-                                      <Badge bg="light" text="dark" className="border shadow-xs x-small">{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Badge>
                                   </div>
-                              </div>
-                          ))
-                      ) : (
-                          <div className="text-center py-5 opacity-50">
-                              <FaHistory size={32} className="mb-2" />
-                              <p className="small mb-0">No upcoming events</p>
+                              ))}
                           </div>
-                      )}
+                      </div>
                   </Card.Body>
               </Card>
           </Col>
@@ -216,29 +253,31 @@ const DashboardView = () => {
                       <FinancialCalendar 
                         meals={meals} 
                         purchases={purchases} 
-                        goals={goals} 
-                        transfers={transfers}
-                        incomes={incomes}
+                        incomes={incomes} 
                       />
                   </motion.div>
-              ) : (
-                  <motion.div key="his" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <TransactionHistory />
-                  </motion.div>
-              )}
+              ) : null}
           </AnimatePresence>
       </div>
 
-      {/* Suggestion #10: Command FAB */}
-      <motion.button 
-        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-        className="prod-fab d-lg-none" 
-        onClick={() => openTransactionModal()}
-      >
-          <FaPlus />
-      </motion.button>
-
       <style>{`
+        .pulse-header {
+            background: var(--primary-gradient);
+            padding: 2.5rem;
+            border-radius: 2rem;
+            color: white;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .donut { margin: 0 auto; }
+        .donut-segment {
+            stroke-dasharray: 0 100;
+            transition: stroke-dasharray 1s ease-out;
+        }
         .letter-spacing-1 { letter-spacing: 1px; }
         .fw-extrabold { font-weight: 800; }
         .x-small { font-size: 0.65rem; }

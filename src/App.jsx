@@ -7,9 +7,10 @@ import { useUI } from './context/UIContext';
 import { useTheme } from './context/ThemeContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
-import { AppProvider } from './context/AppContext';
+import { AppContext, AppProvider } from './context/AppContext';
 import { ProductivityProvider } from './context/ProductivityContext';
 import { UIProvider } from './context/UIContext';
+import { AIProvider } from './context/AIContext';
 
 // Components
 import WalletPanel from './components/WalletPanel';
@@ -265,17 +266,23 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ProductivityProvider>
+        <AIProvider>
           <AppProvider>
-            <UIProvider>
-              <HashRouter>
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              </HashRouter>
-            </UIProvider>
+            <AppContext.Consumer>
+              {({ earnXP }) => (
+                <ProductivityProvider onEarnXP={earnXP}>
+                  <UIProvider>
+                    <HashRouter>
+                      <ProtectedRoute>
+                        <AppLayout />
+                      </ProtectedRoute>
+                    </HashRouter>
+                  </UIProvider>
+                </ProductivityProvider>
+              )}
+            </AppContext.Consumer>
           </AppProvider>
-        </ProductivityProvider>
+        </AIProvider>
       </AuthProvider>
     </ThemeProvider>
   );

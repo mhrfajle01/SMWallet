@@ -27,17 +27,27 @@ const FinancialCalendar = ({ meals, purchases, incomes }) => {
 
     const process = (items, type) => {
         (items || []).forEach(item => {
-            const dateStr = item.date || item.createdAt?.toDate().toISOString().split('T')[0];
+            let dateStr = item.date;
+            
+            if (!dateStr && item.createdAt) {
+                if (typeof item.createdAt.toDate === 'function') {
+                    dateStr = item.createdAt.toDate().toISOString().split('T')[0];
+                } else if (item.createdAt.seconds) {
+                    dateStr = new Date(item.createdAt.seconds * 1000).toISOString().split('T')[0];
+                }
+            }
+
             if (dateStr && dateStr.startsWith(prefix)) {
                 const day = parseInt(dateStr.split('-')[2], 10);
                 if (!data[day]) data[day] = { expense: 0, income: 0, items: [] };
                 
+                const amt = Number(item.amount || 0);
                 if (type === 'income') {
-                    data[day].income += Number(item.amount);
+                    data[day].income += amt;
                 } else {
-                    data[day].expense += Number(item.amount);
+                    data[day].expense += amt;
                 }
-                data[day].items.push({ ...item, type });
+                data[day].items.push({ ...item, type, amount: amt });
             }
         });
     };
