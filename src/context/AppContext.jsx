@@ -14,7 +14,10 @@ import {
   setDoc,
   serverTimestamp,
   getDoc,
-  or 
+  getDocs,
+  increment,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 
 export const AppContext = createContext();
@@ -37,10 +40,32 @@ export const AppProvider = ({ children }) => {
   const [avatarState, setAvatarState] = useState({
     level: 1,
     xp: 0,
+    xp_frugality: 0,
+    xp_consistency: 0,
+    xp_wealth: 0,
     health: 100,
-    lastUpdate: null
+    streak: 1,
+    multiplier: 1,
+    lastUpdate: null,
+    lastActivity: null,
+    lastPassiveGrant: null,
+    dailyStats: { lastReset: null, counts: {} }
   });
   const [loading, setLoading] = useState(true);
+
+  // --- XP Constants & Formulas ---
+  const XP_BASE = 100;
+  const XP_EXPONENT = 1.5;
+
+  const getLevelFromXP = (xp) => {
+    if (xp < XP_BASE) return 1;
+    return Math.floor(Math.pow(xp / XP_BASE, 1 / XP_EXPONENT)) + 1;
+  };
+
+  const getXPToReachLevel = (level) => {
+    if (level <= 1) return 0;
+    return Math.floor(XP_BASE * Math.pow(level - 1, XP_EXPONENT));
+  };
 
   // Global Stats
   const [globalStats, setGlobalStats] = useState({
@@ -56,22 +81,101 @@ export const AppProvider = ({ children }) => {
     }
   });
 
-  const earnXP = async (amount) => {
-    if (!user || !avatarState.id) return;
-    const newXP = (avatarState.xp || 0) + amount;
-    const newLevel = Math.floor(newXP / 100) + 1;
-    const leveledUp = newLevel > (avatarState.level || 1);
+  const earnXP = async (amount, type = 'frugality', actionKey = null) => {
+    if (!user || !avatarState?.id) return;
+    
+    const skillField = `xp_${type}`;
+    const multiplier = avatarState.multiplier || 1;
+    let finalAmount = Math.round(amount * multiplier);
+
+    // Diminishing Returns / Anti-Spam Logic
+    const daily = avatarState.dailyStats || { lastReset: null, counts: {} };
+    const today = new Date().toISOString().split('T')[0];
+    const lastReset = daily.lastReset?.toDate ? daily.lastReset.toDate().toISOString().split('T')[0] : (daily.lastReset ? new Date(daily.lastReset).toISOString().split('T')[0] : null);
+    
+    let updatedCounts = { ...(daily.counts || {}) };
+    
+    if (lastReset !== today) {
+        updatedCounts = {}; // Reset for new day
+    }
+
+    if (actionKey) {
+        const count = updatedCounts[actionKey] || 0;
+        if (count >= 6) {
+            finalAmount = 1; // Minimal reward after 6 actions
+        } else if (count >= 3) {
+            finalAmount = Math.max(1, Math.round(finalAmount * 0.5)); // 50% reward after 3 actions
+        }
+        updatedCounts[actionKey] = count + 1;
+    }
     
     await updateDoc(doc(db, 'avatar', avatarState.id), {
-      xp: newXP,
-      level: newLevel,
-      lastUpdate: serverTimestamp()
+      [skillField]: increment(finalAmount),
+      'dailyStats.counts': updatedCounts,
+      'dailyStats.lastReset': serverTimestamp(),
+      lastUpdate: serverTimestamp(),
+      lastActivity: serverTimestamp()
     });
-    
-    if (leveledUp) {
-      playSound('levelUp');
-    }
   };
+
+  // Level Up Sound Effect
+  useEffect(() => {
+    const prevLevel = Number(localStorage.getItem('prev_level') || 1);
+    if (avatarState.level > prevLevel) {
+        playSound('levelUp');
+    }
+    localStorage.setItem('prev_level', avatarState.level);
+  }, [avatarState.level]);
+
+  // Daily Login Bonus
+  useEffect(() => {
+    if (!user || !avatarState?.id) return;
+    const today = new Date().toISOString().split('T')[0];
+    const lastLogin = localStorage.getItem(`last_login_${user.uid}`);
+    
+    if (lastLogin !== today) {
+        earnXP(20, 'consistency', 'login');
+        localStorage.setItem(`last_login_${user.uid}`, today);
+    }
+  }, [user, avatarState?.id]);
+
+  // Streak & Passive XP Logic
+  useEffect(() => {
+    if (!user || !avatarState?.id || !avatarState?.lastActivity) return;
+    
+    const last = avatarState.lastActivity?.toDate ? avatarState.lastActivity.toDate() : new Date(avatarState.lastActivity);
+    const now = new Date();
+    const diffDays = Math.floor((now - last) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+       // Increment streak if it's the next day
+       const newStreak = (avatarState.streak || 0) + 1;
+       updateDoc(doc(db, 'avatar', avatarState.id), {
+         streak: increment(1),
+         multiplier: Math.min(2, 1 + (newStreak * 0.1)), // 0.1 per day, max 2.0x
+         lastActivity: serverTimestamp()
+       });
+    } else if (diffDays > 1) {
+       // Reset streak if more than a day passed
+       updateDoc(doc(db, 'avatar', avatarState.id), {
+         streak: 1,
+         multiplier: 1.1,
+         lastActivity: serverTimestamp()
+       });
+    }
+
+    // Passive XP for discipline (Under Budget yesterday)
+    const lastGrant = avatarState.lastPassiveGrant?.toDate ? avatarState.lastPassiveGrant.toDate() : (avatarState.lastPassiveGrant ? new Date(avatarState.lastPassiveGrant) : null);
+    if (!lastGrant || Math.floor((now - lastGrant) / (1000 * 60 * 60 * 24)) >= 1) {
+        const totalBudget = (budgets || []).reduce((a, c) => a + (Number(c.limit) || 0), 0);
+        if (totalBudget > 0 && globalStats.totalSpent <= totalBudget) {
+            earnXP(50, 'frugality', 'discipline');
+            updateDoc(doc(db, 'avatar', avatarState.id), {
+                lastPassiveGrant: serverTimestamp()
+            });
+        }
+    }
+  }, [avatarState.id, avatarState.lastActivity, user]);
 
   // Initialization & Categories
   useEffect(() => {
@@ -126,11 +230,60 @@ export const AppProvider = ({ children }) => {
         console.error("Error in trash snapshot:", e);
       }
     });
-    const unsubAvatar = onSnapshot(baseQuery('avatar'), (s) => {
-      if (!s.empty) setAvatarState({ ...s.docs[0].data(), id: s.docs[0].id });
-      else {
-        const initial = { uid: user.uid, userId: user.uid, level: 1, xp: 0, health: 100, createdAt: serverTimestamp() };
-        addDoc(collection(db, 'avatar'), initial);
+    const avatarRef = doc(db, 'avatar', user.uid);
+    let initializing = false;
+    const unsubAvatar = onSnapshot(avatarRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const totalXp = (data.xp || 0) + (data.xp_frugality || 0) + (data.xp_consistency || 0) + (data.xp_wealth || 0);
+        
+        // Calculate level and progress
+        const level = getLevelFromXP(totalXp);
+        const xpToCurrent = getXPToReachLevel(level);
+        const xpToNext = getXPToReachLevel(level + 1);
+        const xpInLevel = totalXp - xpToCurrent;
+        const nextLevelXp = xpToNext - xpToCurrent;
+
+        setAvatarState({ 
+          ...data, 
+          totalXp, 
+          level, 
+          xpInLevel, 
+          nextLevelXp, 
+          id: docSnap.id 
+        });
+      } else if (!initializing) {
+        initializing = true;
+        // Migration: Check if an old random-ID document exists
+        const oldQuery = query(collection(db, 'avatar'), where('uid', '==', user.uid), orderBy('createdAt', 'desc'), limit(1));
+        const initial = { 
+          uid: user.uid, 
+          userId: user.uid, 
+          level: 1, 
+          xp: 0, 
+          xp_frugality: 0, 
+          xp_consistency: 0, 
+          xp_wealth: 0, 
+          health: 100, 
+          streak: 1, 
+          multiplier: 1, 
+          lastActivity: serverTimestamp(), 
+          createdAt: serverTimestamp(),
+          dailyStats: { lastReset: serverTimestamp(), counts: {} }
+        };
+        
+        getDocs(oldQuery).then(s => {
+          if (!s.empty) {
+            const oldDoc = s.docs[0];
+            if (oldDoc.id !== user.uid) {
+                const oldData = oldDoc.data();
+                setDoc(avatarRef, { ...initial, ...oldData, uid: user.uid, userId: user.uid, createdAt: oldData.createdAt || serverTimestamp() });
+                deleteDoc(doc(db, 'avatar', oldDoc.id));
+            }
+          } else {
+            setDoc(avatarRef, initial);
+          }
+        }).catch(() => setDoc(avatarRef, initial));
       }
     });
 
@@ -187,6 +340,28 @@ export const AppProvider = ({ children }) => {
         }
     });
   }, [wallets, meals, purchases, user]);
+
+  // Derived Avatar Health Logic
+  useEffect(() => {
+    if (!user || !avatarState?.id) return;
+
+    const totalBudget = (budgets || []).reduce((a, c) => a + (Number(c.limit) || 0), 0);
+    const spent = globalStats.totalSpent || 0;
+    let newHealth = 100;
+    
+    if (totalBudget > 0 && spent > totalBudget) {
+        const overPercent = ((spent - totalBudget) / totalBudget) * 100;
+        newHealth = Math.max(10, 100 - (overPercent * 2));
+    }
+    
+    const roundedHealth = Math.round(newHealth);
+    if (Math.abs(roundedHealth - (avatarState.health || 100)) > 1) {
+        updateDoc(doc(db, 'avatar', avatarState.id), {
+            health: roundedHealth,
+            lastUpdate: serverTimestamp()
+        });
+    }
+  }, [budgets, globalStats.totalSpent, avatarState?.id, avatarState?.health, user]);
 
   const calculatedWallets = useMemo(() => {
     const walletExpenses = {};
@@ -248,7 +423,7 @@ export const AppProvider = ({ children }) => {
 
   const addWallet = async (name, balance, type = 'asset') => {
     await addDoc(collection(db, 'wallets'), { uid: user.uid, userId: user.uid, name, balance: Number(balance), type, createdAt: serverTimestamp() });
-    await earnXP(10);
+    await earnXP(10, 'wealth', 'wallet');
   };
 
   const deleteWallet = async (id) => {
@@ -261,7 +436,7 @@ export const AppProvider = ({ children }) => {
     await addDoc(collection(db, 'incomes'), { uid: user.uid, userId: user.uid, ...incomeData, amount, createdAt: serverTimestamp() });
     const wallet = wallets.find(w => w.id === incomeData.walletId);
     if (wallet) await updateDoc(doc(db, 'wallets', incomeData.walletId), { balance: Number(wallet.balance || 0) + amount });
-    await earnXP(15);
+    await earnXP(15, 'wealth', 'income');
   };
 
   const updateIncome = async (id, oldData, newData) => {
@@ -296,7 +471,7 @@ export const AppProvider = ({ children }) => {
         uid: user.uid, userId: user.uid, sourceId, destId, sourceName: sW.name, destName: dW.name, 
         amount: numAmount, date: new Date().toISOString().split('T')[0], createdAt: serverTimestamp() 
       });
-      await earnXP(5);
+      await earnXP(5, 'wealth', 'transfer');
     }
   };
 
@@ -312,7 +487,7 @@ export const AppProvider = ({ children }) => {
 
   const addGoal = async (goalData) => {
     await addDoc(collection(db, 'goals'), { uid: user.uid, userId: user.uid, ...goalData, targetAmount: Number(goalData.targetAmount || 0), savedAmount: Number(goalData.savedAmount || 0), createdAt: serverTimestamp() });
-    await earnXP(10);
+    await earnXP(10, 'wealth', 'goal');
   };
 
   const updateGoal = async (id, goalData) => {
@@ -333,7 +508,7 @@ export const AppProvider = ({ children }) => {
     await updateDoc(doc(db, 'goals', goalId), { savedAmount: newSaved });
     const wallet = wallets.find(w => w.id === walletId);
     if (wallet) await updateDoc(doc(db, 'wallets', walletId), { balance: Number(wallet.balance || 0) - numAmount });
-    await earnXP(20);
+    await earnXP(20, 'wealth', 'deposit');
   };
 
   const deleteGoalDeposit = async (id, goalId, walletId, amount) => {
@@ -348,7 +523,7 @@ export const AppProvider = ({ children }) => {
 
   const addMeal = async (mealData) => {
     await addDoc(collection(db, 'meals'), { uid: user.uid, userId: user.uid, ...mealData, amount: Number(mealData.amount || 0), createdAt: serverTimestamp() });
-    await earnXP(5);
+    await earnXP(5, 'frugality', 'meal');
   };
 
   const updateMeal = async (id, mealData) => await updateDoc(doc(db, 'meals', id), { ...mealData, amount: Number(mealData.amount || 0) });
@@ -359,7 +534,7 @@ export const AppProvider = ({ children }) => {
 
   const addPurchase = async (purchaseData) => {
     await addDoc(collection(db, 'purchases'), { uid: user.uid, userId: user.uid, ...purchaseData, amount: Number(purchaseData.amount || 0), createdAt: serverTimestamp() });
-    await earnXP(5);
+    await earnXP(5, 'frugality', 'purchase');
   };
 
   const updatePurchase = async (id, purchaseData) => await updateDoc(doc(db, 'purchases', id), { ...purchaseData, amount: Number(purchaseData.amount || 0) });

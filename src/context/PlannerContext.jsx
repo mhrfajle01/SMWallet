@@ -17,7 +17,7 @@ const PlannerContext = createContext();
 
 export const usePlanner = () => useContext(PlannerContext);
 
-export const PlannerProvider = ({ children }) => {
+export const PlannerProvider = ({ children, onEarnXP }) => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [habits, setHabits] = useState([]);
@@ -100,6 +100,10 @@ export const PlannerProvider = ({ children }) => {
         goal: 8
       });
     }
+    
+    if (newAmount > waterStats.current && onEarnXP) {
+        onEarnXP(2, 'consistency', 'water'); // 2 XP for drinking water
+    }
   };
 
   // --- Task Actions ---
@@ -111,6 +115,7 @@ export const PlannerProvider = ({ children }) => {
       completed: false,
       createdAt: serverTimestamp()
     });
+    if (onEarnXP) onEarnXP(10, 'consistency', 'task');
   };
 
   const updateTask = async (id, taskData) => {
@@ -123,6 +128,9 @@ export const PlannerProvider = ({ children }) => {
     await updateDoc(doc(db, 'planner_tasks', id), {
       completed: !currentStatus
     });
+    if (!currentStatus && onEarnXP) {
+        onEarnXP(15, 'consistency', 'task');
+    }
   };
 
   const deleteTask = async (id) => {
@@ -140,6 +148,7 @@ export const PlannerProvider = ({ children }) => {
       completedDates: [],
       createdAt: serverTimestamp()
     });
+    if (onEarnXP) onEarnXP(10, 'consistency', 'habit');
   };
 
   const updateHabit = async (id, data) => {
@@ -160,6 +169,7 @@ export const PlannerProvider = ({ children }) => {
     } else {
       // Mark as done
       newDates.push(today);
+      if (onEarnXP) onEarnXP(5, 'consistency', 'habit');
     }
 
     // Recalculate Streak

@@ -8,6 +8,7 @@ import ConfirmModal from './ConfirmModal';
 import QuickDepositModal from './QuickDepositModal';
 import TransferModal from './TransferModal';
 import TransactionHistory from './TransactionHistory';
+import FinancialAvatar from './FinancialAvatar';
 import { useTheme } from '../context/ThemeContext';
 
 const WalletPanel = ({ onOpenCreateModal }) => {
@@ -64,6 +65,8 @@ const WalletPanel = ({ onOpenCreateModal }) => {
       animate={{ opacity: 1 }}
       className="pb-5"
     >
+      <FinancialAvatar />
+      
       {/* Premium Global Summary */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}

@@ -80,38 +80,41 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
   // Habits
   const addHabit = async (title) => {
     await addDoc(collection(db, 'habits'), { userId: user.uid, uid: user.uid, title, createdAt: serverTimestamp() });
-    if (onEarnXP) onEarnXP(10);
+    if (onEarnXP) onEarnXP(10, 'consistency', 'habit');
   };
   
   const toggleHabit = async (habitId, date) => {
     const log = habitLogs.find(l => l.habitId === habitId && l.date === date);
     if (log) {
         await updateDoc(doc(db, 'habitLogs', log.id), { status: !log.status });
-        if (!log.status && onEarnXP) onEarnXP(5);
+        if (!log.status && onEarnXP) onEarnXP(5, 'consistency', 'habit');
     } else {
         await addDoc(collection(db, 'habitLogs'), { userId: user.uid, uid: user.uid, habitId, date, status: true, createdAt: serverTimestamp() });
-        if (onEarnXP) onEarnXP(5);
+        if (onEarnXP) onEarnXP(5, 'consistency', 'habit');
     }
   };
 
   // Todos
   const addTodo = async (title, priority = 'Medium', dueDate = '') => {
     await addDoc(collection(db, 'todos'), { userId: user.uid, uid: user.uid, title, priority, dueDate, completed: false, createdAt: serverTimestamp() });
-    if (onEarnXP) onEarnXP(10);
+    if (onEarnXP) onEarnXP(10, 'consistency', 'todo');
   }
 
   const toggleTodo = async (todoId, currentStatus) => {
-    await updateDoc(doc(db, 'todos', todoId), { completed: !currentStatus });
+    await updateDoc(doc(db, 'todos', todoId), { 
+        completed: !currentStatus,
+        updatedAt: serverTimestamp()
+    });
     if (!currentStatus) {
         playSound('pop');
-        if (onEarnXP) onEarnXP(15);
+        if (onEarnXP) onEarnXP(15, 'consistency', 'todo');
     }
   };
 
   // Notes
   const addNote = async (title, content, color = '#ffffff') => {
     await addDoc(collection(db, 'notes'), { userId: user.uid, uid: user.uid, title, content, color, pinned: false, createdAt: serverTimestamp() });
-    if (onEarnXP) onEarnXP(5);
+    if (onEarnXP) onEarnXP(5, 'consistency', 'note');
   }
 
   const updateNote = async (id, data) => await updateDoc(doc(db, 'notes', id), data);
@@ -126,7 +129,7 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
         ...tripData,
         createdAt: serverTimestamp()
     });
-    if (onEarnXP) onEarnXP(20);
+    if (onEarnXP) onEarnXP(20, 'wealth', 'trip');
     return docRef;
   };
 
@@ -147,7 +150,7 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
     if (itemData.targetDate) {
         addTodo(`Reminder: ${itemData.name}`, 'Medium', itemData.targetDate);
     }
-    if (onEarnXP) onEarnXP(5);
+    if (onEarnXP) onEarnXP(5, 'frugality', 'shopping');
     return docRef;
   };
 
@@ -157,7 +160,7 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
     await updateDoc(doc(db, 'shoppingList', id), { completed: !currentStatus });
     if (!currentStatus) {
         playSound('pop');
-        if (onEarnXP) onEarnXP(10);
+        if (onEarnXP) onEarnXP(10, 'frugality', 'shopping');
     }
   };
 

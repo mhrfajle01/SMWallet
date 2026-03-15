@@ -9,8 +9,10 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppContext, AppProvider } from './context/AppContext';
 import { ProductivityProvider } from './context/ProductivityContext';
+import { PlannerProvider } from './context/PlannerContext';
 import { UIProvider } from './context/UIContext';
 import { AIProvider } from './context/AIContext';
+import { QuestProvider } from './context/QuestContext';
 
 // Components
 import WalletPanel from './components/WalletPanel';
@@ -270,15 +272,19 @@ function App() {
           <AppProvider>
             <AppContext.Consumer>
               {({ earnXP }) => (
-                <ProductivityProvider onEarnXP={earnXP}>
-                  <UIProvider>
-                    <HashRouter>
-                      <ProtectedRoute>
-                        <AppLayout />
-                      </ProtectedRoute>
-                    </HashRouter>
-                  </UIProvider>
-                </ProductivityProvider>
+                <PlannerProvider onEarnXP={earnXP}>
+                  <ProductivityProvider onEarnXP={earnXP}>
+                    <QuestProvider>
+                      <UIProvider>
+                        <HashRouter>
+                          <ProtectedRoute>
+                            <AppLayout />
+                          </ProtectedRoute>
+                        </HashRouter>
+                      </UIProvider>
+                    </QuestProvider>
+                  </ProductivityProvider>
+                </PlannerProvider>
               )}
             </AppContext.Consumer>
           </AppProvider>

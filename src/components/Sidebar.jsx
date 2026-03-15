@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   FaWallet, FaChartPie, FaFileAlt, FaTasks, FaList, 
   FaStickyNote, FaDatabase, FaCog, FaPlus, FaSignOutAlt,
-  FaPiggyBank, FaHistory, FaMapMarkedAlt, FaTrash
+  FaPiggyBank, FaHistory, FaMapMarkedAlt, FaTrash, FaBolt
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import FloatingBalance from './FloatingBalance';
@@ -16,6 +16,7 @@ const Sidebar = ({ onAddTransaction }) => {
 
   const financeItems = [
     { path: '/wallets', icon: FaWallet, label: 'My Wallets' },
+    { path: '/history', icon: FaBolt, label: 'Daily Quests' },
     { path: '/history', icon: FaHistory, label: 'Transactions' },
     { path: '/planner', icon: FaMapMarkedAlt, label: 'Smart Planner' },
     { path: '/goals', icon: FaPiggyBank, label: 'Savings Goals' },

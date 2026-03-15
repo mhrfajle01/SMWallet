@@ -10,7 +10,6 @@ import {
 } from 'react-icons/fa';
 import FinancialCalendar from './FinancialCalendar';
 import TransactionHistory from './TransactionHistory';
-import FinancialAvatar from './FinancialAvatar';
 import { db } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import '../Dashboard.css';
@@ -77,49 +76,10 @@ const DashboardView = () => {
     return feed.slice(0, 3);
   }, [todos, budgets, globalStats, categories]);
 
-  // --- Financial Avatar Progression Logic ---
-  useEffect(() => {
-    if (!avatarState?.id) return;
-
-    const calculateNewState = () => {
-        const today = new Date().toISOString().split('T')[0];
-        
-        // XP from Productivity
-        const doneTasks = todos.filter(t => t.completed).length;
-        const doneHabits = habitLogs.filter(l => l.date === today && l.status).length;
-        const totalXP = (doneTasks * 10) + (doneHabits * 5);
-
-        // Health from Budget
-        const totalBudget = (budgets || []).reduce((a, c) => a + (Number(c.limit) || 0), 0);
-        const spent = globalStats.totalSpent || 0;
-        let newHealth = 100;
-        
-        if (totalBudget > 0 && spent > totalBudget) {
-            const overPercent = ((spent - totalBudget) / totalBudget) * 100;
-            newHealth = Math.max(10, 100 - (overPercent * 2));
-        }
-
-        const newLevel = Math.floor(totalXP / 100) + 1;
-
-        if (newLevel !== avatarState.level || totalXP !== avatarState.xp || Math.abs(newHealth - avatarState.health) > 5) {
-            updateDoc(doc(db, 'avatar', avatarState.id), {
-                level: newLevel,
-                xp: totalXP,
-                health: Math.round(newHealth),
-                updatedAt: serverTimestamp()
-            });
-        }
-    };
-
-    const timer = setTimeout(calculateNewState, 3000);
-    return () => clearTimeout(timer);
-  }, [todos, habitLogs, globalStats.totalSpent, avatarState, budgets]);
-
   if (viewMode === 'history') return <TransactionHistory />;
 
   return (
     <div className="dash-container pb-5">
-      <FinancialAvatar />
       
       {/* Visual Pulse Header (#1) */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="pulse-header shadow-lg mb-4">
