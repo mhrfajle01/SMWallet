@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
+import { FaShieldAlt } from 'react-icons/fa';
 
 const AddGoalModal = ({ show, onHide }) => {
   const { addGoal } = useApp();
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [savedAmount, setSavedAmount] = useState('0');
+  const [isEmergency, setIsEmergency] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,11 +17,13 @@ const AddGoalModal = ({ show, onHide }) => {
     await addGoal({
       name,
       targetAmount,
-      savedAmount
+      savedAmount,
+      isEmergency
     });
     setName('');
     setTargetAmount('');
     setSavedAmount('0');
+    setIsEmergency(false);
     onHide();
   };
 
@@ -59,16 +63,39 @@ const AddGoalModal = ({ show, onHide }) => {
               onChange={(e) => setSavedAmount(e.target.value)}
             />
           </Form.Group>
-          <div className="d-flex justify-content-end">
-            <Button variant="secondary" className="me-2" onClick={onHide}>
+
+          <Form.Group className="mb-4">
+            <div className="p-3 rounded-4 bg-info bg-opacity-10 border border-info border-opacity-25">
+                <Form.Check 
+                    type="switch"
+                    id="emergency-toggle"
+                    label={
+                        <div className="ms-2">
+                            <div className="fw-bold small d-flex align-items-center gap-2">
+                                <FaShieldAlt className="text-info" /> Mark as Emergency Fund
+                            </div>
+                            <div className="x-small text-muted mt-1">Activating this shield reduces health loss from overspending when 100% funded!</div>
+                        </div>
+                    }
+                    checked={isEmergency}
+                    onChange={(e) => setIsEmergency(e.target.checked)}
+                />
+            </div>
+          </Form.Group>
+
+          <div className="d-flex justify-content-end pt-2">
+            <Button variant="secondary" className="me-2 rounded-pill px-4" onClick={onHide}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" className="btn-primary-custom">
+            <Button variant="primary" type="submit" className="rounded-pill px-4 fw-bold shadow-sm">
               Add Goal
             </Button>
           </div>
         </Form>
       </Modal.Body>
+      <style>{`
+        .x-small { font-size: 0.7rem; }
+      `}</style>
     </Modal>
   );
 };

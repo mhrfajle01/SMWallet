@@ -13,6 +13,7 @@ import { PlannerProvider } from './context/PlannerContext';
 import { UIProvider } from './context/UIContext';
 import { AIProvider } from './context/AIContext';
 import { QuestProvider } from './context/QuestContext';
+import { AchievementProvider } from './context/AchievementContext';
 
 // Components
 import WalletPanel from './components/WalletPanel';
@@ -274,15 +275,17 @@ function App() {
               {({ earnXP }) => (
                 <PlannerProvider onEarnXP={earnXP}>
                   <ProductivityProvider onEarnXP={earnXP}>
-                    <QuestProvider>
-                      <UIProvider>
-                        <HashRouter>
-                          <ProtectedRoute>
-                            <AppLayout />
-                          </ProtectedRoute>
-                        </HashRouter>
-                      </UIProvider>
-                    </QuestProvider>
+                    <AchievementProvider>
+                      <QuestProvider>
+                        <UIProvider>
+                          <HashRouter>
+                            <ProtectedRoute>
+                              <AppLayout />
+                            </ProtectedRoute>
+                          </HashRouter>
+                        </UIProvider>
+                      </QuestProvider>
+                    </AchievementProvider>
                   </ProductivityProvider>
                 </PlannerProvider>
               )}

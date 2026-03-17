@@ -14,6 +14,39 @@ const requestBuiltInAI = (messages, context) => {
     const lastMessage = messages[messages.length - 1].content.toLowerCase();
     const { finance, productivity } = context || {};
     
+    // --- Bulk Extract Request (Statement Parser) ---
+    if (lastMessage.includes('extract transactions') || lastMessage.includes('financial data extractor')) {
+        const textPart = lastMessage.split('text: "')[1]?.split('"')[0] || lastMessage;
+        const lines = textPart.split('\n');
+        const transactions = [];
+        const dateRegex = /\d{4}-\d{2}-\d{2}/;
+        
+        lines.forEach(line => {
+            if (!line.trim()) return;
+            const amountMatch = line.match(/(\d+(\.\d+)?)/);
+            if (amountMatch) {
+                const amount = parseFloat(amountMatch[0]);
+                const dateMatch = line.match(dateRegex);
+                const date = dateMatch ? dateMatch[0] : new Date().toISOString().split('T')[0];
+                
+                // Clean up item name: remove amount and date
+                let item = line.replace(amountMatch[0], '').replace(date || '', '').replace(/spent|at|paid|for|bdt/gi, '').replace(/[":,{}[\]]/g, '').trim();
+                if (!item || item.length < 2) item = "Item";
+
+                transactions.push({
+                    item,
+                    amount,
+                    type: "purchase",
+                    category: "Other",
+                    date
+                });
+            }
+        });
+        
+        if (transactions.length > 0) return JSON.stringify(transactions);
+        return "[]";
+    }
+
     // --- JSON Format Request (Locally Created AI) ---
     if (lastMessage.includes('json') || lastMessage.includes('format')) {
         return JSON.stringify({

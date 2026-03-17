@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useMemo } from '
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { playSound } from '../utils/soundEffects';
+import { getLocalISO } from '../utils/dateUtils';
 import { 
   collection, 
   onSnapshot, 
@@ -46,6 +47,8 @@ export const AppProvider = ({ children }) => {
     health: 100,
     streak: 1,
     multiplier: 1,
+    shadowXP: 0,
+    shadowLevel: 0,
     lastUpdate: null,
     lastActivity: null,
     lastPassiveGrant: null,
@@ -81,11 +84,28 @@ export const AppProvider = ({ children }) => {
     }
   });
 
+  const isShieldActive = useMemo(() => {
+    return goals.some(g => g.isEmergency && Number(g.savedAmount) >= Number(g.targetAmount));
+  }, [goals]);
+
   const earnXP = async (amount, type = 'frugality', actionKey = null) => {
     if (!user || !avatarState?.id) return;
     
     const skillField = `xp_${type}`;
-    const multiplier = avatarState.multiplier || 1;
+    let multiplier = avatarState.multiplier || 1;
+
+    // Apply Wealth Perks (Passive Buffs)
+    if (type === 'wealth') {
+        if ((avatarState.xp_wealth || 0) >= 1500) multiplier *= 1.20;
+        else if ((avatarState.xp_wealth || 0) >= 500) multiplier *= 1.10;
+    }
+
+    // Apply Consistency Perk (Early Riser)
+    if (type === 'consistency' && (avatarState.xp_consistency || 0) >= 500) {
+        const hour = new Date().getHours();
+        if (hour < 10) multiplier *= 1.05; // 5% bonus before 10 AM
+    }
+
     let finalAmount = Math.round(amount * multiplier);
 
     // Diminishing Returns / Anti-Spam Logic
@@ -109,12 +129,24 @@ export const AppProvider = ({ children }) => {
         updatedCounts[actionKey] = count + 1;
     }
     
+    // If earning positive XP, slightly reduce shadow if it exists
+    const shadowReduction = Math.floor(finalAmount * 0.1);
+
     await updateDoc(doc(db, 'avatar', avatarState.id), {
       [skillField]: increment(finalAmount),
+      shadowXP: increment(-shadowReduction),
       'dailyStats.counts': updatedCounts,
       'dailyStats.lastReset': serverTimestamp(),
       lastUpdate: serverTimestamp(),
       lastActivity: serverTimestamp()
+    });
+  };
+
+  const increaseShadowXP = async (amount) => {
+    if (!user || !avatarState?.id) return;
+    await updateDoc(doc(db, 'avatar', avatarState.id), {
+        shadowXP: increment(amount),
+        lastUpdate: serverTimestamp()
     });
   };
 
@@ -237,6 +269,10 @@ export const AppProvider = ({ children }) => {
         const data = docSnap.data();
         const totalXp = (data.xp || 0) + (data.xp_frugality || 0) + (data.xp_consistency || 0) + (data.xp_wealth || 0);
         
+        // Shadow Level Calculation
+        const shadowXP = Math.max(0, data.shadowXP || 0);
+        const shadowLevel = Math.floor(shadowXP / 500);
+
         // Calculate level and progress
         const level = getLevelFromXP(totalXp);
         const xpToCurrent = getXPToReachLevel(level);
@@ -250,6 +286,8 @@ export const AppProvider = ({ children }) => {
           level, 
           xpInLevel, 
           nextLevelXp, 
+          shadowXP,
+          shadowLevel,
           id: docSnap.id 
         });
       } else if (!initializing) {
@@ -267,6 +305,8 @@ export const AppProvider = ({ children }) => {
           health: 100, 
           streak: 1, 
           multiplier: 1, 
+          shadowXP: 0,
+          shadowLevel: 0,
           lastActivity: serverTimestamp(), 
           createdAt: serverTimestamp(),
           dailyStats: { lastReset: serverTimestamp(), counts: {} }
@@ -351,7 +391,20 @@ export const AppProvider = ({ children }) => {
     
     if (totalBudget > 0 && spent > totalBudget) {
         const overPercent = ((spent - totalBudget) / totalBudget) * 100;
-        newHealth = Math.max(10, 100 - (overPercent * 2));
+        let penaltyMultiplier = 2;
+        
+        // Consistency Perk (Unstoppable) - Reduce health loss
+        if ((avatarState.xp_consistency || 0) >= 1500) penaltyMultiplier = 1;
+        
+        // --- NEW: EMERGENCY SHIELD LOGIC ---
+        if (isShieldActive) penaltyMultiplier *= 0.5; // Halve the penalty if shield is active
+        
+        newHealth = Math.max(10, 100 - (overPercent * penaltyMultiplier));
+
+        // If taking significant damage, increase shadow!
+        if (newHealth < (avatarState.health - 5)) {
+            increaseShadowXP(100);
+        }
     }
     
     const roundedHealth = Math.round(newHealth);
@@ -469,7 +522,7 @@ export const AppProvider = ({ children }) => {
       await updateDoc(doc(db, 'wallets', destId), { balance: Number(dW.balance || 0) + numAmount });
       await addDoc(collection(db, 'transfers'), { 
         uid: user.uid, userId: user.uid, sourceId, destId, sourceName: sW.name, destName: dW.name, 
-        amount: numAmount, date: new Date().toISOString().split('T')[0], createdAt: serverTimestamp() 
+        amount: numAmount, date: getLocalISO(), createdAt: serverTimestamp() 
       });
       await earnXP(5, 'wealth', 'transfer');
     }
@@ -504,7 +557,7 @@ export const AppProvider = ({ children }) => {
     const goal = goals.find(g => g.id === goalId);
     if (!goal) return;
     const newSaved = Number(goal.savedAmount || 0) + numAmount;
-    await addDoc(collection(db, 'goal_deposits'), { uid: user.uid, userId: user.uid, goalId, walletId, goalName: goal.name, amount: numAmount, date: new Date().toISOString().split('T')[0], createdAt: serverTimestamp() });
+    await addDoc(collection(db, 'goal_deposits'), { uid: user.uid, userId: user.uid, goalId, walletId, goalName: goal.name, amount: numAmount, date: getLocalISO(), createdAt: serverTimestamp() });
     await updateDoc(doc(db, 'goals', goalId), { savedAmount: newSaved });
     const wallet = wallets.find(w => w.id === walletId);
     if (wallet) await updateDoc(doc(db, 'wallets', walletId), { balance: Number(wallet.balance || 0) - numAmount });
@@ -569,10 +622,10 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       wallets: calculatedWallets,
-      meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, trashItems, avatarState, loading,
+      meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, trashItems, avatarState, loading, isShieldActive,
       addCategory, deleteCategory, addWallet, deleteWallet, addGoal, updateGoal, deleteGoal, depositToGoal, deleteGoalDeposit,
       addMeal, updateMeal, deleteMeal, addPurchase, updatePurchase, deletePurchase, updateBudget, deleteBudget, addIncome, updateIncome, deleteIncome, transferFunds, deleteTransfer, getSmartRecents,
-      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash, earnXP
+      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash, earnXP, increaseShadowXP
     }}>
       {children}
     </AppContext.Provider>

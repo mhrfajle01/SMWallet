@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useApp } from '../context/AppContext';
 import StatusModal from './StatusModal';
+import { getLocalISO } from '../utils/dateUtils';
 
 const schema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -22,7 +23,7 @@ const MealForm = ({ preFill }) => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalISO(),
       mealType: 'Lunch',
       item: preFill?.item || '',
       amount: preFill?.amount || '',
@@ -34,7 +35,7 @@ const MealForm = ({ preFill }) => {
   useEffect(() => {
     if (preFill) {
       reset({
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalISO(),
         mealType: 'Lunch',
         item: preFill.item || '',
         amount: preFill.amount || '',

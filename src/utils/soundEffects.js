@@ -40,3 +40,13 @@ export const playSound = (type = 'pop') => {
     console.error('Audio play failed', e);
   }
 };
+
+export const triggerHaptic = (pattern = 10) => {
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  } catch (e) {
+    console.error('Haptic failed', e);
+  }
+};

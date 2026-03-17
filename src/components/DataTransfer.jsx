@@ -6,13 +6,13 @@ import { FaFileDownload, FaFileUpload } from 'react-icons/fa';
 import Papa from 'papaparse';
 
 const DataTransfer = () => {
-  const { habits, todos, notes } = useProductivity();
-  const { wallets, meals, purchases } = useApp();
+  const { addHabit, addTodo, addNote } = useProductivity();
+  const { wallets, meals, purchases, addWallet, addMeal, addPurchase } = useApp();
   const fileInputRef = useRef(null);
 
   const downloadCSV = (data, filename) => {
     if (!data || data.length === 0) return alert("No data to export");
-    const csv = Papa.unparse(data.map(({ id, userId, createdAt, ...rest }) => rest)); // Exclude system fields
+    const csv = Papa.unparse(data.map(({ id, userId, createdAt, updatedAt, ...rest }) => rest)); // Exclude system fields
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -25,16 +25,71 @@ const DataTransfer = () => {
   };
 
   const handleImport = (e) => {
-    // Basic import stub - implementing full restore logic requires matching fields, which is complex.
-    // For now, let's just parse and console log or alert.
     const file = e.target.files[0];
     if (!file) return;
 
+    const fileName = file.name.toLowerCase();
+
     Papa.parse(file, {
         header: true,
-        complete: (results) => {
-            console.log("Imported Data:", results.data);
-            alert(`Parsed ${results.data.length} rows. Check console for data. Bulk import logic to Firestore to be implemented.`);
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            const data = results.data;
+            let count = 0;
+            
+            try {
+                if (fileName.includes('wallet')) {
+                    for (const row of data) {
+                        if (row.name) {
+                            await addWallet(row.name, row.balance || 0, row.type || 'asset');
+                            count++;
+                        }
+                    }
+                } else if (fileName.includes('meal')) {
+                    for (const row of data) {
+                        if (row.item) {
+                            await addMeal(row);
+                            count++;
+                        }
+                    }
+                } else if (fileName.includes('purchase')) {
+                    for (const row of data) {
+                        if (row.item) {
+                            await addPurchase(row);
+                            count++;
+                        }
+                    }
+                } else if (fileName.includes('habit')) {
+                    for (const row of data) {
+                        if (row.title) {
+                            await addHabit(row.title);
+                            count++;
+                        }
+                    }
+                } else if (fileName.includes('todo') || fileName.includes('task')) {
+                    for (const row of data) {
+                        if (row.title) {
+                            await addTodo(row.title, row.priority || 'Medium', row.dueDate || '');
+                            count++;
+                        }
+                    }
+                } else if (fileName.includes('note')) {
+                    for (const row of data) {
+                        if (row.title || row.content) {
+                            await addNote(row.title || 'Untitled', row.content || '', row.color || '#ffffff');
+                            count++;
+                        }
+                    }
+                } else {
+                    alert("Unknown file type. Please use a CSV file exported from this app.");
+                    return;
+                }
+                alert(`Successfully imported ${count} items!`);
+            } catch (err) {
+                console.error("Import failed:", err);
+                alert("Import failed. See console for details.");
+            }
         }
     });
   };

@@ -3,6 +3,7 @@ import { Card, Button, Form, Row, Col, Badge } from 'react-bootstrap';
 import { useProductivity } from '../../context/ProductivityContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaTrash, FaCheck, FaCalendarAlt, FaFire } from 'react-icons/fa';
+import { getLocalISO } from '../../utils/dateUtils';
 import '../../Productivity.css';
 
 const HabitTracker = () => {
@@ -10,13 +11,13 @@ const HabitTracker = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [newHabit, setNewHabit] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalISO();
   
   // Get last 7 days for the mini-grid
   const last7Days = [...Array(7)].map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
+    return getLocalISO(d);
   }).reverse();
 
   const handleAdd = (e) => {

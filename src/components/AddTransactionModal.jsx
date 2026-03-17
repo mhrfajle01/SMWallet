@@ -6,7 +6,9 @@ import MealForm from './MealForm';
 import PurchaseForm from './PurchaseForm';
 import IncomeForm from './IncomeForm';
 import ReceiptScanner from './ReceiptScanner';
+import StatementParser from './StatementParser';
 import { playSound } from '../utils/soundEffects';
+import { getLocalISO } from '../utils/dateUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaMagic, FaHistory, FaCheck, FaTimes, FaLightbulb, FaCamera } from 'react-icons/fa';
 
@@ -86,7 +88,7 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
   const handleQuickEntry = async (temp) => {
     if (wallets.length === 0) return alert("Create a wallet first!");
     const defaultWallet = wallets[0];
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalISO();
     const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     try {
@@ -114,7 +116,7 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
 
     if (wallets.length === 0) return alert("Create a wallet first!");
     const defaultWallet = wallets[0];
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalISO();
     const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     const match = smartRecents.find(r => r.label.toLowerCase() === parsed.item.toLowerCase());
@@ -153,6 +155,9 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
           <Nav variant="pills" className="w-100 justify-content-center p-1 p-md-2 rounded-pill mb-3 overflow-auto scrollbar-hidden flex-nowrap" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
             <Nav.Item>
               <Nav.Link active={activeType === 'magic'} onClick={() => setActiveType('magic')} className="rounded-pill text-center small py-2 px-3">Magic</Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link active={activeType === 'bulk'} onClick={() => setActiveType('bulk')} className="rounded-pill text-center small py-2 px-3 text-info">Bulk</Nav.Link>
             </Nav.Item>
             <Nav.Item>
               <Nav.Link active={activeType === 'scan'} onClick={() => setActiveType('scan')} className="rounded-pill text-center small py-2 px-3 text-warning"><FaCamera className="me-1" /> Scan</Nav.Link>
@@ -268,6 +273,7 @@ const AddTransactionModal = ({ show, onHide, preFill }) => {
                 <ReceiptScanner onScanComplete={handleScanComplete} onCancel={() => setActiveType('magic')} />
             </motion.div>
         )}
+        {activeType === 'bulk' && <StatementParser onComplete={onHide} />}
       </Modal.Body>
     </Modal>
   );
