@@ -7,6 +7,7 @@ import { useAI } from '../context/AIContext';
 import { useQuests } from '../context/QuestContext';
 import { FaUser, FaWallet, FaMoon, FaSun, FaShieldAlt, FaBell, FaCheckCircle, FaGlobe, FaRobot, FaCoins, FaVolumeUp, FaSync, FaSave, FaMobileAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import { requestNotificationPermission, sendNotification } from '../utils/notifications';
 
 const SettingsPanel = () => {
   const { user, userData, updateUserSettings } = useAuth();
@@ -189,6 +190,23 @@ const SettingsPanel = () => {
                                     className="small fw-medium"
                                     checked={aiSettings.hapticEnabled !== false}
                                     onChange={(e) => updateAISettings({ hapticEnabled: e.target.checked })}
+                                />
+                                <Form.Check 
+                                    type="switch"
+                                    id="notif-switch"
+                                    label="Push Notifications"
+                                    className="small fw-medium"
+                                    checked={aiSettings.notifEnabled === true}
+                                    onChange={async (e) => {
+                                        const granted = await requestNotificationPermission();
+                                        if (granted) {
+                                            updateAISettings({ notifEnabled: true });
+                                            sendNotification("Notifications Enabled", { body: "You will now receive alerts for tasks and goals!" });
+                                        } else {
+                                            updateAISettings({ notifEnabled: false });
+                                            alert("Please enable notification permission in your browser settings.");
+                                        }
+                                    }}
                                 />
                             </div>
                         </Form.Group>

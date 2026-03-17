@@ -6,7 +6,7 @@ import { useUI } from '../context/UIContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     FaWallet, FaArrowUp, FaArrowDown, FaChartPie, FaCalendarAlt, 
-    FaShoppingBasket, FaPlane, FaTasks, FaLightbulb, FaHistory, FaPlus
+    FaShoppingBasket, FaPlane, FaTasks, FaLightbulb, FaHistory, FaPlus, FaMobileAlt, FaDownload
 } from 'react-icons/fa';
 import FinancialCalendar from './FinancialCalendar';
 import TransactionHistory from './TransactionHistory';
@@ -14,7 +14,40 @@ import { db } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import '../Dashboard.css';
 
+// Hook to handle PWA Installation
+const usePWAInstall = () => {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+    }
+  };
+
+  return { isInstallable, installApp };
+};
+
 const DashboardView = () => {
+  const { isInstallable, installApp } = usePWAInstall();
   const { globalStats, meals, purchases, wallets, categories, budgets, incomes, transfers, goals, avatarState } = useApp();
   const { shoppingList, trips, todos, habitLogs } = useProductivity();
   const { openTransactionModal } = useUI();
@@ -185,6 +218,21 @@ const DashboardView = () => {
                               <span>Log Transaction</span>
                               <FaPlus />
                           </Button>
+                          
+                          {isInstallable && (
+                              <Button 
+                                variant="outline-success" 
+                                className="py-3 fw-bold shadow-sm d-flex align-items-center justify-content-between border-2" 
+                                onClick={installApp}
+                                style={{ borderRadius: '1rem' }}
+                              >
+                                  <div className="d-flex align-items-center gap-2">
+                                      <FaMobileAlt />
+                                      <span>Install SMWallet PRO</span>
+                                  </div>
+                                  <FaDownload />
+                              </Button>
+                          )}
                           <div className="row g-3">
                               {upcomingFeed.map((item, i) => (
                                   <div key={i} className="col-12">

@@ -39,10 +39,26 @@ import AddTransactionModal from './components/AddTransactionModal';
 import GlobalSearch from './components/GlobalSearch';
 import PageLoader from './components/PageLoader';
 import FloatingBalance from './components/FloatingBalance';
-import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaList, FaHistory, FaTasks, FaStickyNote, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaList, FaHistory, FaTasks, FaStickyNote, FaTrash, FaWifi } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import './App.css';
+
+// Offline Monitor Hook
+const useOffline = () => {
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  return isOffline;
+};
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -131,6 +147,7 @@ function ProtectedRoute({ children }) {
 }
 
 function AppLayout() {
+  const isOffline = useOffline();
   const { loading } = useApp();
   const { showAddTransactionModal, transactionPreFill, openTransactionModal, closeTransactionModal } = useUI();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -157,6 +174,21 @@ function AppLayout() {
 
   return (
     <div className="app-container">
+      {/* Offline Status Bar */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-warning text-dark py-1 px-3 text-center small fw-bold d-flex align-items-center justify-content-center gap-2 sticky-top"
+            style={{ zIndex: 9999, borderBottom: '1px solid rgba(0,0,0,0.1)' }}
+          >
+            <FaWifi /> Working Offline • Changes will sync later
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Sidebar onAddTransaction={openTransactionModal} />
 
       <div className="main-content d-flex flex-column p-0">
