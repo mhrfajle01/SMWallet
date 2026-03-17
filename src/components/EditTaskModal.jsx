@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
-import { usePlanner } from '../context/PlannerContext';
+import { useProductivity } from '../context/ProductivityContext';
 
 const EditTaskModal = ({ show, onHide, task }) => {
-  const { updateTask } = usePlanner();
+  const { updateTodo } = useProductivity();
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
@@ -14,7 +14,7 @@ const EditTaskModal = ({ show, onHide, task }) => {
     if (task) {
       setTitle(task.title || '');
       setTime(task.time || '');
-      setDate(task.date || '');
+      setDate(task.dueDate || task.date || '');
       setCategory(task.category || 'Work');
       setPriority(task.priority || 'Medium');
     }
@@ -24,7 +24,7 @@ const EditTaskModal = ({ show, onHide, task }) => {
     e.preventDefault();
     if (!title || !task) return;
     
-    updateTask(task.id, { title, time, date, category, priority });
+    updateTodo(task.id, { title, time, dueDate: date, category, priority });
     onHide();
   };
 

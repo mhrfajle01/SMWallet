@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
-import { usePlanner } from '../context/PlannerContext';
+import { useProductivity } from '../context/ProductivityContext';
 
 const AddHabitModal = ({ show, onHide }) => {
-  const { addHabit } = usePlanner();
+  const { addHabit } = useProductivity();
   const [name, setName] = useState('');
   const [color, setColor] = useState('#3b82f6');
 

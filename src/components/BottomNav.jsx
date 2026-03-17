@@ -33,9 +33,9 @@ const BottomNav = () => {
 
       <NavLink 
         to="/planner"
-        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive || location.pathname?.includes('productivity') ? 'active' : ''}`}
       >
-        <FaMapMarkedAlt className="nav-icon" />
+        <FaTasks className="nav-icon" />
         <span>Planner</span>
       </NavLink>
 
@@ -53,14 +53,6 @@ const BottomNav = () => {
       >
         <FaFileAlt className="nav-icon" />
         <span>Reports</span>
-      </NavLink>
-
-      <NavLink 
-        to="/productivity/habits"
-        className={({ isActive }) => `nav-item text-decoration-none ${isActive || location.pathname?.includes('productivity') ? 'active' : ''}`}
-      >
-        <FaTasks className="nav-icon" />
-        <span>Tools</span>
       </NavLink>
 
       <NavLink 

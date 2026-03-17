@@ -9,7 +9,6 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppContext, AppProvider } from './context/AppContext';
 import { ProductivityProvider } from './context/ProductivityContext';
-import { PlannerProvider } from './context/PlannerContext';
 import { UIProvider } from './context/UIContext';
 import { AIProvider } from './context/AIContext';
 import { QuestProvider } from './context/QuestContext';
@@ -22,7 +21,7 @@ import BudgetPlanner from './components/BudgetPlanner';
 import ReportPanel from './components/ReportPanel';
 import SettingsPanel from './components/SettingsPanel';
 import DashboardView from './components/DashboardView';
-import SmartPlanner from './components/SmartPlanner';
+import UnifiedPlanner from './components/UnifiedPlanner';
 import TrashView from './components/TrashView';
 
 // Productivity Components
@@ -207,7 +206,7 @@ function AppLayout() {
                     <Route path="/reports" element={<ReportPanel />} />
                     <Route path="/settings" element={<SettingsPanel />} />
                     <Route path="/history" element={<DashboardView />} />
-                    <Route path="/planner" element={<SmartPlanner />} />
+                    <Route path="/planner" element={<UnifiedPlanner />} />
                     <Route path="/trash" element={<TrashView />} />
                     
                     {/* Productivity Routes */}
@@ -273,21 +272,19 @@ function App() {
           <AppProvider>
             <AppContext.Consumer>
               {({ earnXP }) => (
-                <PlannerProvider onEarnXP={earnXP}>
-                  <ProductivityProvider onEarnXP={earnXP}>
-                    <AchievementProvider>
-                      <QuestProvider>
-                        <UIProvider>
-                          <HashRouter>
-                            <ProtectedRoute>
-                              <AppLayout />
-                            </ProtectedRoute>
-                          </HashRouter>
-                        </UIProvider>
-                      </QuestProvider>
-                    </AchievementProvider>
-                  </ProductivityProvider>
-                </PlannerProvider>
+                <ProductivityProvider onEarnXP={earnXP}>
+                  <AchievementProvider>
+                    <QuestProvider>
+                      <UIProvider>
+                        <HashRouter>
+                          <ProtectedRoute>
+                            <AppLayout />
+                          </ProtectedRoute>
+                        </HashRouter>
+                      </UIProvider>
+                    </QuestProvider>
+                  </AchievementProvider>
+                </ProductivityProvider>
               )}
             </AppContext.Consumer>
           </AppProvider>

@@ -15,7 +15,7 @@ import ConfirmModal from './ConfirmModal';
 import '../Productivity.css';
 
 const SmartPlanner = () => {
-  const { shoppingList, trips, addTrip, updateTrip, deleteTrip, addShoppingItem, updateShoppingItem, toggleShoppingItem, deleteShoppingItem, clearCompletedShopping } = useProductivity();
+  const { shoppingList, trips, addTrip, updateTrip, deleteTrip, duplicateTrip, addShoppingItem, updateShoppingItem, toggleShoppingItem, deleteShoppingItem, clearCompletedShopping } = useProductivity();
   const { categories, budgets, meals, purchases, globalStats } = useApp();
   const { openTransactionModal } = useUI();
   
@@ -220,7 +220,12 @@ const SmartPlanner = () => {
                       <Dropdown.Toggle variant="light" className="rounded-circle p-2 border-0 shadow-none no-caret"><FaEllipsisV size={14}/></Dropdown.Toggle>
                       <Dropdown.Menu className="shadow-lg border-0 rounded-4 p-2">
                           {activeMode === 'trip' && currentTrip && (
-                              <Dropdown.Item className="text-danger small" onClick={() => setShowConfirmDelete(true)}><FaTrash className="me-2" /> Delete Trip</Dropdown.Item>
+                              <>
+                                <Dropdown.Item className="small" onClick={() => duplicateTrip(selectedTripId)}>
+                                    <FaHistory className="me-2" /> Duplicate Trip
+                                </Dropdown.Item>
+                                <Dropdown.Item className="text-danger small" onClick={() => setShowConfirmDelete(true)}><FaTrash className="me-2" /> Delete Trip</Dropdown.Item>
+                              </>
                           )}
                           {completedItems.length > 0 && (
                               <Dropdown.Item className="text-muted small" onClick={() => clearCompletedShopping(selectedTripId)}>

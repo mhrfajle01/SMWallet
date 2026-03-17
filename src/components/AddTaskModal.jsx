@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
-import { usePlanner } from '../context/PlannerContext';
+import { useProductivity } from '../context/ProductivityContext';
 
 const AddTaskModal = ({ show, onHide }) => {
-  const { addTask } = usePlanner();
+  const { addTodo } = useProductivity();
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -14,7 +14,7 @@ const AddTaskModal = ({ show, onHide }) => {
     e.preventDefault();
     if (!title) return;
     
-    addTask({ title, time, date, category, priority });
+    addTodo(title, priority, date, { time, category });
     setTitle('');
     setTime('');
     onHide();

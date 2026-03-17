@@ -16,19 +16,15 @@ const Sidebar = ({ onAddTransaction }) => {
 
   const financeItems = [
     { path: '/wallets', icon: FaWallet, label: 'My Wallets' },
-    { path: '/history', icon: FaBolt, label: 'Daily Quests' },
+    { path: '/planner', icon: FaTasks, label: 'Daily Hub / Plan' },
     { path: '/history', icon: FaHistory, label: 'Transactions' },
-    { path: '/planner', icon: FaMapMarkedAlt, label: 'Smart Planner' },
     { path: '/goals', icon: FaPiggyBank, label: 'Savings Goals' },
     { path: '/budget', icon: FaChartPie, label: 'Budget Plan' },
     { path: '/reports', icon: FaFileAlt, label: 'Reports' },
   ];
 
   const productivityItems = [
-    { path: '/productivity/habits', icon: FaList, label: 'Habit Tracker' },
-    { path: '/productivity/todos', icon: FaTasks, label: 'To-Do Manager' },
-    { path: '/productivity/notes', icon: FaStickyNote, label: 'Notes' },
-    { path: '/trash', icon: FaTrash, label: 'Trash' },
+    { path: '/trash', icon: FaTrash, label: 'Trash Bin' },
     { path: '/productivity/data', icon: FaDatabase, label: 'Data Backup' },
   ];
 
