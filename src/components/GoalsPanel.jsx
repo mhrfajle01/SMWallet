@@ -92,7 +92,7 @@ const GoalsPanel = ({ onOpenCreateModal }) => {
           const progress = Math.min((saved / target) * 100, 100);
           
           return (
-            <Col key={goal.id || Math.random()} md={6} xl={4} className="mb-4">
+            <Col key={goal.id || index} md={6} xl={4} className="mb-4">
               <motion.div variants={itemVariants} whileHover={{ y: -5 }}>
                 <Card className="custom-card border-0 h-100">
                   <Card.Body className="p-4 d-flex flex-column">

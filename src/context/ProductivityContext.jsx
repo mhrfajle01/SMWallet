@@ -42,22 +42,28 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
     const baseQuery = (coll) => query(collection(db, coll), where('uid', '==', user.uid));
 
     const unsubHabits = onSnapshot(baseQuery('habits'), (s) => 
-      setHabits(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+      setHabits(s.docs.map(d => ({ ...d.data(), id: d.id }))),
+      (err) => { console.error("Habits snapshot error:", err); });
 
     const unsubHabitLogs = onSnapshot(baseQuery('habitLogs'), (s) => 
-      setHabitLogs(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+      setHabitLogs(s.docs.map(d => ({ ...d.data(), id: d.id }))),
+      (err) => { console.error("HabitLogs snapshot error:", err); });
 
     const unsubTodos = onSnapshot(baseQuery('todos'), (s) => 
-      setTodos(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+      setTodos(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Todos snapshot error:", err); });
 
     const unsubNotes = onSnapshot(baseQuery('notes'), (s) => 
-      setNotes(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+      setNotes(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Notes snapshot error:", err); });
 
     const unsubShopping = onSnapshot(baseQuery('shoppingList'), (s) => 
-      setShoppingList(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+      setShoppingList(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Shopping snapshot error:", err); });
 
     const unsubTrips = onSnapshot(baseQuery('trips'), (s) => 
-      setTrips(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+      setTrips(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Trips snapshot error:", err); });
 
     // Fetch Today's Water
     const today = getTodayStr();
@@ -69,7 +75,7 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
       } else {
         setWaterStats({ current: 0, goal: 8, id: null });
       }
-    });
+    }, (err) => { console.error("Water snapshot error:", err); });
 
     setLoading(false);
     return () => { 

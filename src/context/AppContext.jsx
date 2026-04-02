@@ -27,6 +27,7 @@ export const AppContext = createContext();
 export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
+  console.log('AppProvider: Rendering...');
   const { user } = useAuth();
   
   const [wallets, setWallets] = useState([]);
@@ -293,7 +294,7 @@ export const AppProvider = ({ children }) => {
             setCategories(snapshot.docs.map(doc => ({ dbId: doc.id, ...doc.data() })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)));
           }
       } catch (e) { console.error("Categories fetch error:", e); }
-    });
+    }, (err) => { console.error("Categories snapshot error:", err); });
 
     const baseQuery = (coll) => query(collection(db, coll), where('uid', '==', user.uid));
 

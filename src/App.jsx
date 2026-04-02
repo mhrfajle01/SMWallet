@@ -99,6 +99,7 @@ const ErrorBoundary = ({ children }) => {
 };
 
 function AppLayout() {
+  console.log('AppLayout: Rendering...');
   const isOffline = useOffline();
   const { showAddTransactionModal, transactionPreFill, openTransactionModal, closeTransactionModal } = useUI();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -284,38 +285,39 @@ const AutoSwitch = ({ children }) => {
 };
 
 function App() {
+  console.log('App: Initializing providers...');
   return (
-    <AuthProvider>
-      <AIProvider>
-        <AppProvider>
-          <AppContext.Consumer>
-            {({ earnXP }) => (
-              <ProductivityProvider onEarnXP={earnXP}>
-                <AchievementProvider>
-                  <QuestProvider>
-                    <ModuleProvider>
-                      <HashRouter>
-                        <AutoSwitch>
-                          <ThemeProvider>
-                            <UIProvider>
-                              <ProtectedRoute>
-                                <ErrorBoundary>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AIProvider>
+          <AppProvider>
+            <AppContext.Consumer>
+              {({ earnXP }) => (
+                <ProductivityProvider onEarnXP={earnXP}>
+                  <AchievementProvider>
+                    <QuestProvider>
+                      <ModuleProvider>
+                        <HashRouter>
+                          <AutoSwitch>
+                            <ThemeProvider>
+                              <UIProvider>
+                                <ProtectedRoute>
                                   <AppLayout />
-                                </ErrorBoundary>
-                              </ProtectedRoute>
-                            </UIProvider>
-                          </ThemeProvider>
-                        </AutoSwitch>
-                      </HashRouter>
-                    </ModuleProvider>
-                  </QuestProvider>
-                </AchievementProvider>
-              </ProductivityProvider>
-            )}
-          </AppContext.Consumer>
-        </AppProvider>
-      </AIProvider>
-    </AuthProvider>
+                                </ProtectedRoute>
+                              </UIProvider>
+                            </ThemeProvider>
+                          </AutoSwitch>
+                        </HashRouter>
+                      </ModuleProvider>
+                    </QuestProvider>
+                  </AchievementProvider>
+                </ProductivityProvider>
+              )}
+            </AppContext.Consumer>
+          </AppProvider>
+        </AIProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
