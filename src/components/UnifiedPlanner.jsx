@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Container, Nav, Card, Row, Col, ProgressBar, Badge, Button, ListGroup } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     FaCalendarDay, FaTasks, FaFire, FaPlane, FaStickyNote, 
     FaTint, FaPlus, FaMinus, FaCheckCircle, FaClock, FaChevronRight,
-    FaBolt
+    FaBolt, FaThLarge
 } from 'react-icons/fa';
 import { useProductivity } from '../context/ProductivityContext';
 import { useApp } from '../context/AppContext';
@@ -18,9 +19,10 @@ import NotesApp from './productivity/NotesApp';
 
 const DailyOverview = ({ setActiveTab }) => {
   const { 
-    todos, habits, habitLogs, waterStats, updateWater, getTodayStr, getDailyProgress 
+    todos, habits, habitLogs, waterStats, updateWater, getTodayStr, getDailyProgress, toggleHabit
   } = useProductivity();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   const today = getTodayStr();
   const progress = getDailyProgress();
@@ -51,11 +53,16 @@ const DailyOverview = ({ setActiveTab }) => {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="py-2">
       {/* Welcome Header */}
-      <div className="mb-4">
-          <h2 className="fw-bold mb-1">{getTimeGreeting()}, {user?.displayName?.split(' ')[0] || 'Planner'}!</h2>
-          <p className="text-muted small d-flex align-items-center gap-2">
-              <FaCalendarDay className="text-primary" /> {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
+      <div className="d-flex justify-content-between align-items-start mb-4">
+          <div>
+              <h2 className="fw-bold mb-1">{getTimeGreeting()}, {user?.displayName?.split(' ')[0] || 'Planner'}!</h2>
+              <p className="text-muted small d-flex align-items-center gap-2">
+                  <FaCalendarDay className="text-primary" /> {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </p>
+          </div>
+          <Button variant="outline-primary" size="sm" className="rounded-pill px-3 fw-bold border-dashed mt-1" onClick={() => navigate('/selection')} style={{ borderStyle: 'dashed' }}>
+              <FaThLarge className="me-2" /> Switch Workspace
+          </Button>
       </div>
 
       <Row className="g-4">

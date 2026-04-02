@@ -6,7 +6,7 @@ import { FaFileDownload, FaFileUpload } from 'react-icons/fa';
 import Papa from 'papaparse';
 
 const DataTransfer = () => {
-  const { addHabit, addTodo, addNote } = useProductivity();
+  const { addHabit, addTodo, addNote, habits, todos, notes } = useProductivity();
   const { wallets, meals, purchases, addWallet, addMeal, addPurchase } = useApp();
   const fileInputRef = useRef(null);
 

@@ -1,83 +1,105 @@
 import React from 'react';
-import { Nav, Button } from 'react-bootstrap';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Nav, Button, Badge } from 'react-bootstrap';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FaWallet, FaChartPie, FaFileAlt, FaTasks, FaList, 
   FaStickyNote, FaDatabase, FaCog, FaPlus, FaSignOutAlt,
-  FaPiggyBank, FaHistory, FaMapMarkedAlt, FaTrash, FaBolt
+  FaPiggyBank, FaHistory, FaMapMarkedAlt, FaTrash, FaBolt, FaThLarge, FaChartLine
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { useModule } from '../context/ModuleContext';
 import FloatingBalance from './FloatingBalance';
 import GlobalSearch from './GlobalSearch';
 
 const Sidebar = ({ onAddTransaction }) => {
   const { logout } = useAuth();
+  const { activeModule } = useModule();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const financeItems = [
-    { path: '/dashboard', icon: FaChartPie, label: 'Dashboard' },
-    { path: '/wallets', icon: FaWallet, label: 'My Wallets' },
-    { path: '/planner', icon: FaTasks, label: 'Daily Hub / Plan' },
-    { path: '/history', icon: FaHistory, label: 'Transactions' },
-    { path: '/goals', icon: FaPiggyBank, label: 'Savings Goals' },
-    { path: '/budget', icon: FaChartPie, label: 'Budget Plan' },
-    { path: '/reports', icon: FaFileAlt, label: 'Reports' },
+    { path: '/dashboard', icon: FaChartPie, label: 'Wealth Hub' },
+    { path: '/wallets', icon: FaWallet, label: 'Asset Management' },
+    { path: '/history', icon: FaHistory, label: 'Transaction Audit' },
+    { path: '/goals', icon: FaPiggyBank, label: 'Growth Targets' },
+    { path: '/budget', icon: FaChartLine, label: 'Capital Control' },
+    { path: '/reports', icon: FaFileAlt, label: 'Financial Analytics' },
+    { path: '/planner', icon: FaTasks, label: 'Payment Scheduler' },
+    { path: '/trash', icon: FaTrash, label: 'Recycle Bin' },
   ];
 
   const productivityItems = [
-    { path: '/trash', icon: FaTrash, label: 'Trash Bin' },
-    { path: '/productivity/data', icon: FaDatabase, label: 'Data Backup' },
+    { path: '/planner', icon: FaTasks, label: 'Focus Planner' },
+    { path: '/productivity/habits', icon: FaBolt, label: 'Routine Mastery' },
+    { path: '/productivity/todos', icon: FaList, label: 'Project Backlog' },
+    { path: '/productivity/notes', icon: FaStickyNote, label: 'Brain Dump' },
+    { path: '/trash', icon: FaTrash, label: 'Archive' },
   ];
 
   return (
-    <div className="sidebar d-none d-lg-flex flex-column shadow-sm border-end" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+    <div className="sidebar d-none d-lg-flex flex-column shadow-sm border-end" style={{ background: 'var(--nav-bg)', borderColor: 'var(--border-color)', transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
       <div className="sidebar-header p-4 text-center">
-        <h4 className="fw-bold text-primary mb-0">SMWallet</h4>
-        <small className="text-muted">Pro Finance Tool</small>
+        <h4 className="fw-bold text-primary mb-0 letter-spacing-1">SMWALLET</h4>
+        <Badge bg="primary" className="bg-opacity-10 text-primary mt-2 uppercase x-small">
+          {activeModule === 'finance' ? 'Wealth Architect' : 'Peak Performance'}
+        </Badge>
       </div>
 
       <div className="flex-grow-1 overflow-auto px-3">
         <Button 
-          variant="primary" 
-          className="w-100 rounded-pill mb-3 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
-          onClick={onAddTransaction}
+          variant="outline-secondary" 
+          className="w-100 rounded-pill mb-4 py-2 small fw-bold d-flex align-items-center justify-content-center gap-2 border-0 opacity-75 hover-opacity-100"
+          onClick={() => navigate('/selection')}
         >
-          <FaPlus /> New Entry
+          <FaThLarge size={14} /> Global Hub
         </Button>
 
-        <FloatingBalance isMobile={false} />
+        {activeModule === 'finance' && (
+          <Button 
+            variant="primary" 
+            className="w-100 rounded-pill mb-4 py-2 fw-bold shadow-lg d-flex align-items-center justify-content-center gap-2"
+            onClick={onAddTransaction}
+            style={{ background: 'var(--primary-gradient)', border: 'none' }}
+          >
+            <FaPlus /> Capital Entry
+          </Button>
+        )}
 
-        <div className="mb-4">
-          <small className="text-uppercase fw-bold text-muted opacity-50 px-3 mb-2 d-block letter-spacing-1" style={{ fontSize: '0.7rem' }}>Finance</small>
-          <Nav className="flex-column gap-1">
-            {financeItems.map((item) => (
-              <NavLink 
-                key={item.path} 
-                to={item.path} 
-                className={({ isActive }) => `sidebar-link rounded-3 px-3 py-2 d-flex align-items-center gap-3 text-decoration-none ${isActive ? 'active' : ''}`}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </Nav>
-        </div>
+        {activeModule === 'finance' && <FloatingBalance isMobile={false} />}
 
-        <div className="mb-4">
-          <small className="text-uppercase fw-bold text-muted opacity-50 px-3 mb-2 d-block letter-spacing-1" style={{ fontSize: '0.7rem' }}>Productivity</small>
-          <Nav className="flex-column gap-1">
-            {productivityItems.map((item) => (
-              <NavLink 
-                key={item.path} 
-                to={item.path} 
-                className={({ isActive }) => `sidebar-link rounded-3 px-3 py-2 d-flex align-items-center gap-3 text-decoration-none ${isActive ? 'active' : ''}`}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </Nav>
-        </div>
+        {activeModule === 'finance' && (
+          <div className="mb-4">
+            <Nav className="flex-column gap-1">
+              {financeItems.map((item) => (
+                <NavLink 
+                  key={item.path} 
+                  to={item.path} 
+                  className={({ isActive }) => `sidebar-link rounded-3 px-3 py-2 d-flex align-items-center gap-3 text-decoration-none ${isActive ? 'active' : ''}`}
+                >
+                  <item.icon size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </Nav>
+          </div>
+        )}
+
+        {activeModule === 'productivity' && (
+          <div className="mb-4">
+            <Nav className="flex-column gap-1">
+              {productivityItems.map((item) => (
+                <NavLink 
+                  key={item.path} 
+                  to={item.path} 
+                  className={({ isActive }) => `sidebar-link rounded-3 px-3 py-2 d-flex align-items-center gap-3 text-decoration-none ${isActive ? 'active' : ''}`}
+                >
+                  <item.icon size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </Nav>
+          </div>
+        )}
       </div>
 
       <div className="sidebar-footer p-3 border-top" style={{ background: 'var(--bg-color)', borderColor: 'var(--border-color)' }}>
@@ -102,3 +124,4 @@ const Sidebar = ({ onAddTransaction }) => {
 };
 
 export default Sidebar;
+

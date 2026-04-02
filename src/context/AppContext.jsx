@@ -298,15 +298,30 @@ export const AppProvider = ({ children }) => {
     const baseQuery = (coll) => query(collection(db, coll), where('uid', '==', user.uid));
 
     const unsubWallets = onSnapshot(baseQuery('wallets'), (s) => 
-      setWallets(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+      setWallets(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Wallets snapshot error:", err); });
     
-    const unsubBudgets = onSnapshot(baseQuery('budgets'), (s) => setBudgets(s.docs.map(d => ({ ...d.data(), id: d.id }))));
-    const unsubIncomes = onSnapshot(baseQuery('incomes'), (s) => setIncomes(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubTransfers = onSnapshot(baseQuery('transfers'), (s) => setTransfers(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubGoals = onSnapshot(baseQuery('goals'), (s) => setGoals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
-    const unsubMeals = onSnapshot(baseQuery('meals'), (s) => setMeals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubPurchases = onSnapshot(baseQuery('purchases'), (s) => setPurchases(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))));
-    const unsubDeposits = onSnapshot(baseQuery('goal_deposits'), (s) => setGoalDeposits(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+    const unsubBudgets = onSnapshot(baseQuery('budgets'), (s) => setBudgets(s.docs.map(d => ({ ...d.data(), id: d.id }))),
+      (err) => { console.error("Budgets snapshot error:", err); });
+      
+    const unsubIncomes = onSnapshot(baseQuery('incomes'), (s) => setIncomes(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))),
+      (err) => { console.error("Incomes snapshot error:", err); });
+      
+    const unsubTransfers = onSnapshot(baseQuery('transfers'), (s) => setTransfers(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))),
+      (err) => { console.error("Transfers snapshot error:", err); });
+      
+    const unsubGoals = onSnapshot(baseQuery('goals'), (s) => setGoals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Goals snapshot error:", err); });
+      
+    const unsubMeals = onSnapshot(baseQuery('meals'), (s) => setMeals(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))),
+      (err) => { console.error("Meals snapshot error:", err); });
+      
+    const unsubPurchases = onSnapshot(baseQuery('purchases'), (s) => setPurchases(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => new Date(b.date) - new Date(a.date))),
+      (err) => { console.error("Purchases snapshot error:", err); });
+      
+    const unsubDeposits = onSnapshot(baseQuery('goal_deposits'), (s) => setGoalDeposits(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      (err) => { console.error("Deposits snapshot error:", err); });
+      
     const unsubTrash = onSnapshot(baseQuery('trash'), (s) => {
       try {
         setTrashItems(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => {
@@ -317,7 +332,8 @@ export const AppProvider = ({ children }) => {
       } catch (e) {
         console.error("Error in trash snapshot:", e);
       }
-    });
+    }, (err) => { console.error("Trash snapshot error:", err); });
+    
     const avatarRef = doc(db, 'avatar', user.uid);
     let initializing = false;
     const unsubAvatar = onSnapshot(avatarRef, (docSnap) => {
@@ -385,6 +401,9 @@ export const AppProvider = ({ children }) => {
         }).catch(() => setDoc(avatarRef, initial));
       }
       setLoading(false); // Set loading to false immediately after snapshot
+    }, (err) => {
+        console.error("Avatar snapshot error:", err);
+        setLoading(false);
     });
 
     return () => { 

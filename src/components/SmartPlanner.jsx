@@ -97,6 +97,7 @@ const SmartPlanner = () => {
 
   const handleShare = () => {
     let text = `*SMWallet Planner: ${activeMode === 'daily' ? 'Shopping List' : currentTrip?.name}*\n\n`;
+    const currentList = [...activeItems, ...completedItems];
     currentList.forEach(item => {
         const itemLine = item.isRoute ? `${item.from} ➔ ${item.to} (${item.transport})` : item.name;
         text += `${item.completed ? '✅' : '⬜'} ${itemLine}: ${item.estimatedPrice} BDT\n`;

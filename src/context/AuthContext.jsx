@@ -4,7 +4,9 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -32,7 +34,12 @@ export const AuthProvider = ({ children }) => {
             setUserData(docSnap.data());
           } else {
             // Initialize if not exists
-            const initialData = { email: firebaseUser.email, pinnedWalletId: '' };
+            const initialData = { 
+              email: firebaseUser.email, 
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              pinnedWalletId: '' 
+            };
             setDoc(docRef, initialData);
             setUserData(initialData);
           }
@@ -66,6 +73,11 @@ export const AuthProvider = ({ children }) => {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
+  const loginWithGoogle = () => {
+    const provider = new GoogleAuthProvider();
+    return signInWithPopup(auth, provider);
+  };
+
   const logout = () => {
     return signOut(auth);
   };
@@ -82,6 +94,7 @@ export const AuthProvider = ({ children }) => {
     userData,
     signup,
     login,
+    loginWithGoogle,
     logout,
     updateUserSettings,
     loading

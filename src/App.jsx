@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Navbar, Button, Nav, Badge } from 'react-bootstrap';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Container, Button, Badge } from 'react-bootstrap';
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useApp } from './context/AppContext';
@@ -24,6 +24,9 @@ import DashboardView from './components/DashboardView';
 import UnifiedPlanner from './components/UnifiedPlanner';
 import TrashView from './components/TrashView';
 import UnifiedDashboard from './components/UnifiedDashboard';
+import CategorySelection from './components/CategorySelection';
+import HybridOverview from './components/HybridOverview';
+import { ModuleProvider, useModule } from './context/ModuleContext';
 
 // Productivity Components
 import HabitTracker from './components/productivity/HabitTracker';
@@ -39,8 +42,7 @@ import AuthView from './components/AuthView';
 import AddTransactionModal from './components/AddTransactionModal';
 import GlobalSearch from './components/GlobalSearch';
 import PageLoader from './components/PageLoader';
-import FloatingBalance from './components/FloatingBalance';
-import { FaPlus, FaMoon, FaSun, FaWallet, FaSignOutAlt, FaList, FaHistory, FaTasks, FaStickyNote, FaTrash, FaWifi } from 'react-icons/fa';
+import { FaPlus, FaMoon, FaSun, FaSignOutAlt, FaWifi, FaThLarge } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import './App.css';
@@ -48,6 +50,7 @@ import './App.css';
 // Offline Monitor Hook
 const useOffline = () => {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -58,100 +61,48 @@ const useOffline = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
   return isOffline;
 };
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError(error) { return { hasError: true }; }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-5 text-center">
-          <h5 className="text-danger mb-3">Something went wrong in this section.</h5>
-          <Button variant="outline-primary" onClick={() => window.location.reload()}>Reload App</Button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-// Mobile Header Component
-const MobileHeader = () => {
-  const { isDarkMode, toggleTheme } = useTheme();
-  const { logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isProductivity = location.pathname.includes('/productivity');
-
-  return (
-    <Navbar className="border-bottom shadow-sm d-lg-none sticky-top flex-column p-0" style={{ minHeight: 'var(--header-height)', background: 'var(--nav-bg)', borderColor: 'var(--border-color)' }}>
-      <Container className="px-2 d-flex align-items-center" style={{ height: 'var(--header-height)' }}>
-        <div className="d-flex align-items-center flex-grow-1 overflow-hidden">
-            <Navbar.Brand 
-            className="d-flex align-items-center fw-bold text-primary mb-0 me-2" 
-            onClick={() => navigate('/wallets')} 
-            style={{ cursor: 'pointer', fontSize: '1.1rem' }}
-            >
-            {isProductivity ? 'Tools' : 'SM'}
-            </Navbar.Brand>
-            <FloatingBalance />
-        </div>
-        <div className="d-flex align-items-center gap-2 ms-2">
-          <Button variant="link" onClick={toggleTheme} className="text-secondary p-1">
-            {isDarkMode ? <FaMoon size={18} className="text-warning" /> : <FaSun size={18} className="text-warning" />}
-          </Button>
-          <Button variant="link" onClick={logout} className="text-danger p-1">
-            <FaSignOutAlt size={18} />
-          </Button>
-        </div>
-      </Container>
-      {/* Mobile Search Bar */}
-      {!isProductivity && (
-          <div className="w-100 px-3 pb-2">
-              <GlobalSearch isMobile={true} />
-          </div>
-      )}
-      {/* Mobile Sub-Nav for Productivity */}
-      {isProductivity && (
-         <div className="w-100 overflow-auto d-flex gap-3 px-3 pb-2 border-top pt-2" style={{ background: 'var(--nav-bg)' }}>
-            <Button variant={location.pathname.includes('habits') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/habits')}>Habits</Button>
-            <Button variant={location.pathname.includes('todos') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/todos')}>Tasks</Button>
-            <Button variant={location.pathname.includes('notes') ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/productivity/notes')}>Notes</Button>
-            <Button variant={location.pathname === '/trash' ? 'primary' : 'light'} size="sm" className="rounded-pill flex-shrink-0" onClick={() => navigate('/trash')}>Trash</Button>
-         </div>
-      )}
-    </Navbar>
-  );
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="vh-100 d-flex justify-content-center align-items-center" style={{ background: 'var(--bg-color)' }}><PageLoader /></div>;
+  return user ? children : <AuthView />;
 };
 
-function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+const ErrorBoundary = ({ children }) => {
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    const handleError = (e) => { 
+        console.error("Critical Application Error:", e); 
+        setHasError(true); 
+    };
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleError);
+    return () => {
+        window.removeEventListener('error', handleError);
+        window.removeEventListener('unhandledrejection', handleError);
+    };
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="vh-100 d-flex justify-content-center align-items-center" style={{ background: 'var(--bg-color)' }}>
-        <PageLoader />
+  if (hasError) return (
+    <div className="vh-100 d-flex flex-column justify-content-center align-items-center text-center p-4" style={{ background: '#f8fafc' }}>
+      <div className="bg-white p-5 rounded-5 shadow-lg border" style={{ maxWidth: '500px' }}>
+        <h2 className="fw-bold mb-3 text-danger">Something went wrong</h2>
+        <p className="text-muted mb-4 text-center">The application encountered an unexpected error. We've been notified and are looking into it.</p>
+        <Button variant="primary" className="rounded-pill px-5 py-3 fw-bold shadow-sm" onClick={() => window.location.reload()}>Refresh Application</Button>
       </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthView />;
-  }
-
+    </div>
+  );
   return children;
-}
+};
 
 function AppLayout() {
   const isOffline = useOffline();
-  const { loading } = useApp();
   const { showAddTransactionModal, transactionPreFill, openTransactionModal, closeTransactionModal } = useUI();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { activeModule } = useModule();
   const { logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -165,8 +116,26 @@ function AppLayout() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const isSelectionPage = location.pathname === '/selection';
+  const isZenMode = activeModule === 'productivity';
+
+  const mobileTitle = useMemo(() => {
+    const path = location.pathname;
+    if (path.includes('wallets')) return 'Wallets';
+    if (path.includes('goals')) return 'Goals';
+    if (path.includes('planner')) return 'Daily Planner';
+    if (path.includes('history')) return 'History';
+    if (path.includes('dashboard')) return 'Hub';
+    if (path.includes('settings')) return 'Settings';
+    if (path.includes('habits')) return 'Habits';
+    if (path.includes('todos')) return 'Todos';
+    if (path.includes('notes')) return 'Notes';
+    if (path.includes('overview')) return 'Life Feed';
+    return 'SMWallet';
+  }, [location]);
+
   return (
-    <div className="app-container">
+    <div className={`app-container ${isZenMode ? 'zen-mode' : ''}`} style={{ fontFamily: 'var(--workspace-font)' }}>
       {/* Offline Status Bar */}
       <AnimatePresence>
         {isOffline && (
@@ -182,38 +151,47 @@ function AppLayout() {
         )}
       </AnimatePresence>
 
-      <Sidebar onAddTransaction={openTransactionModal} />
+      {!isSelectionPage && <Sidebar onAddTransaction={openTransactionModal} />}
 
-      <div className="main-content d-flex flex-column p-0">
+      <div className={`main-content d-flex flex-column p-0 ${isSelectionPage ? 'w-100' : ''}`}>
         {/* Desktop Top Header */}
-        <div className="d-none d-lg-flex align-items-center justify-content-between px-4 sticky-top border-bottom" 
-             style={{ 
-               height: '70px', 
-               background: 'var(--nav-bg)', 
-               zIndex: 100, 
-               backdropFilter: 'blur(10px)',
-               borderColor: 'var(--border-color)'
-             }}>
-          <div style={{ width: '400px' }}>
-            <GlobalSearch />
-          </div>
+        {!isSelectionPage && (
+          <div className="d-none d-lg-flex align-items-center justify-content-between px-4 sticky-top border-bottom" 
+               style={{ 
+                 height: '70px', 
+                 background: 'var(--nav-bg)', 
+                 zIndex: 100, 
+                 backdropFilter: 'blur(10px)',
+                 borderColor: 'var(--border-color)'
+               }}>
+            <div style={{ width: '400px' }}>
+              <GlobalSearch />
+            </div>
 
-          <div className="d-flex align-items-center gap-3">
-            <Button variant="link" onClick={toggleTheme} className="text-secondary p-2 rounded-circle hover-bg">
-              {isDarkMode ? <FaMoon size={18} className="text-warning" /> : <FaSun size={18} className="text-warning" />}
-            </Button>
-            <div className="vr opacity-10" style={{ height: '20px' }}></div>
-            <Button variant="outline-danger" size="sm" className="rounded-pill px-3 border-0 fw-bold" onClick={logout}>
-              <FaSignOutAlt className="me-2" /> Logout
-            </Button>
+            <div className="d-flex align-items-center gap-3">
+              <Button variant="link" onClick={toggleTheme} className="text-secondary p-2 rounded-circle hover-bg">
+                {isDarkMode ? <FaMoon size={18} className="text-warning" /> : <FaSun size={18} className="text-warning" />}
+              </Button>
+              <div className="vr opacity-10" style={{ height: '20px' }}></div>
+              <Button variant="outline-danger" size="sm" className="rounded-pill px-3 border-0 fw-bold" onClick={logout}>
+                <FaSignOutAlt className="me-2" /> Logout
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Mobile Header */}
-        <MobileHeader />
+        {!isSelectionPage && (
+          <div className="d-lg-none sticky-top bg-surface border-bottom px-3 d-flex align-items-center justify-content-between" style={{ height: '60px', zIndex: 1000, background: 'var(--nav-bg)' }}>
+            <h5 className="mb-0 fw-bold text-primary">{mobileTitle}</h5>
+            <Button variant="link" onClick={toggleTheme} className="text-secondary p-2">
+              {isDarkMode ? <FaSun size={20} className="text-warning" /> : <FaMoon size={20} />}
+            </Button>
+          </div>
+        )}
 
-        <div className="flex-grow-1 overflow-auto" style={{ padding: isDesktop ? '2rem' : '1rem', paddingBottom: isDesktop ? '2rem' : '100px' }}>
-          <Container fluid={isDesktop} className={isDesktop ? "px-4" : "p-0"}>
+        <div className="flex-grow-1 overflow-auto" style={{ padding: isDesktop && !isSelectionPage ? '2rem' : '0', paddingBottom: isDesktop ? '2rem' : (isSelectionPage ? '0' : '100px') }}>
+          <Container fluid={isDesktop} className={isDesktop && !isSelectionPage ? "px-4" : "p-0"}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
@@ -222,28 +200,28 @@ function AppLayout() {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <ErrorBoundary>
-                  <Routes>
-                    {/* Finance Routes */}
-                    <Route path="/dashboard" element={<UnifiedDashboard />} />
-                    <Route path="/wallets" element={<WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />} />
-                    <Route path="/goals" element={<GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />} />
-                    <Route path="/budget" element={<BudgetPlanner />} />
-                    <Route path="/reports" element={<ReportPanel />} />
-                    <Route path="/settings" element={<SettingsPanel />} />
-                    <Route path="/history" element={<DashboardView />} />
-                    <Route path="/planner" element={<UnifiedPlanner />} />
-                    <Route path="/trash" element={<TrashView />} />
-                    
-                    {/* Productivity Routes */}
-                    <Route path="/productivity/habits" element={<HabitTracker />} />
-                    <Route path="/productivity/todos" element={<TodoManager />} />
-                    <Route path="/productivity/notes" element={<NotesApp />} />
-                    <Route path="/productivity/data" element={<DataTransfer />} />
-                    
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                  </Routes>
-                </ErrorBoundary>
+                <Routes>
+                  <Route path="/selection" element={<CategorySelection />} />
+                  <Route path="/overview" element={<HybridOverview />} />
+                  {/* Finance Routes */}
+                  <Route path="/dashboard" element={<UnifiedDashboard />} />
+                  <Route path="/wallets" element={<WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />} />
+                  <Route path="/goals" element={<GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />} />
+                  <Route path="/budget" element={<BudgetPlanner />} />
+                  <Route path="/reports" element={<ReportPanel />} />
+                  <Route path="/settings" element={<SettingsPanel />} />
+                  <Route path="/history" element={<DashboardView />} />
+                  <Route path="/planner" element={<UnifiedPlanner />} />
+                  <Route path="/trash" element={<TrashView />} />
+                  
+                  {/* Productivity Routes */}
+                  <Route path="/productivity/habits" element={<HabitTracker />} />
+                  <Route path="/productivity/todos" element={<TodoManager />} />
+                  <Route path="/productivity/notes" element={<NotesApp />} />
+                  <Route path="/productivity/data" element={<DataTransfer />} />
+                  
+                  <Route path="*" element={<Navigate to="/selection" replace />} />
+                </Routes>
               </motion.div>
             </AnimatePresence>
           </Container>
@@ -251,7 +229,7 @@ function AppLayout() {
       </div>
 
       {/* Mobile Floating Action Button */}
-      {!isDesktop && !location.pathname.includes('/productivity') && (
+      {!isDesktop && !isSelectionPage && !location.pathname.includes('/productivity') && (
         <div className="fab-container">
           <motion.button 
             whileHover={{ scale: 1.1 }}
@@ -266,7 +244,7 @@ function AppLayout() {
       )}
 
       {/* Mobile Bottom Navigation */}
-      {!isDesktop && (
+      {!isDesktop && !isSelectionPage && (
         <BottomNav />
       )}
 
@@ -275,7 +253,7 @@ function AppLayout() {
         show={showCreateWalletModal} 
         onHide={() => setShowCreateWalletModal(false)} 
       />
-      
+
       <AddGoalModal 
         show={showAddGoalModal} 
         onHide={() => setShowAddGoalModal(false)} 
@@ -290,33 +268,54 @@ function AppLayout() {
   );
 }
 
+const AutoSwitch = ({ children }) => {
+  const { activeModule } = useModule();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!activeModule && (location.pathname === '/' || location.pathname === '/selection')) {
+      const hour = new Date().getHours();
+      let target = (hour >= 6 && hour < 11) ? 'productivity' : (hour >= 18 ? 'finance' : null);
+      if (target) console.log(`Smart Switch Recommendation: ${target}`);
+    }
+  }, [activeModule, location.pathname]);
+
+  return children;
+};
+
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AIProvider>
-          <AppProvider>
-            <AppContext.Consumer>
-              {({ earnXP }) => (
-                <ProductivityProvider onEarnXP={earnXP}>
-                  <AchievementProvider>
-                    <QuestProvider>
-                      <UIProvider>
-                        <HashRouter>
-                          <ProtectedRoute>
-                            <AppLayout />
-                          </ProtectedRoute>
-                        </HashRouter>
-                      </UIProvider>
-                    </QuestProvider>
-                  </AchievementProvider>
-                </ProductivityProvider>
-              )}
-            </AppContext.Consumer>
-          </AppProvider>
-        </AIProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <AIProvider>
+        <AppProvider>
+          <AppContext.Consumer>
+            {({ earnXP }) => (
+              <ProductivityProvider onEarnXP={earnXP}>
+                <AchievementProvider>
+                  <QuestProvider>
+                    <ModuleProvider>
+                      <HashRouter>
+                        <AutoSwitch>
+                          <ThemeProvider>
+                            <UIProvider>
+                              <ProtectedRoute>
+                                <ErrorBoundary>
+                                  <AppLayout />
+                                </ErrorBoundary>
+                              </ProtectedRoute>
+                            </UIProvider>
+                          </ThemeProvider>
+                        </AutoSwitch>
+                      </HashRouter>
+                    </ModuleProvider>
+                  </QuestProvider>
+                </AchievementProvider>
+              </ProductivityProvider>
+            )}
+          </AppContext.Consumer>
+        </AppProvider>
+      </AIProvider>
+    </AuthProvider>
   );
 }
 
