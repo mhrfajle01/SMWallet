@@ -2,7 +2,7 @@
   "name": "SMWallet PRO",
   "short_name": "SMWallet",
   "description": "Smart Financial & Productivity Assistant",
-  "start_url": "/SMWallet/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
@@ -22,13 +22,13 @@
     {
       "name": "Add Transaction",
       "short_name": "Add",
-      "url": "/SMWallet/#/wallets?action=add",
+      "url": "./#/wallets?action=add",
       "icons": [{ "src": "vite.svg", "sizes": "192x192" }]
     },
     {
       "name": "Tasks",
       "short_name": "Tasks",
-      "url": "/SMWallet/#/productivity/todos",
+      "url": "./#/productivity/todos",
       "icons": [{ "src": "vite.svg", "sizes": "192x192" }]
     }
   ]
