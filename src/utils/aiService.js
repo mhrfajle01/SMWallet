@@ -201,5 +201,15 @@ export const aiService = {
       } catch (e) {
           return `I'm having trouble connecting to the AI. Error: ${e.message}. I'll use built-in logic: \n\n${requestBuiltInAI([{role:'user', content:prompt}], projectContext)}`;
       }
+  },
+
+  getFinancialInsights: async (summary, settings = {}) => {
+      try {
+          // If no settings provided, it will fallback to built-in in requestAI
+          const prompt = `Provide a very short (1 sentence) motivational advice based on: ${JSON.stringify(summary)}. Language: ${summary.language || 'english'}.`;
+          return await aiService.requestAI(settings, [{ role: "user", content: prompt }], { finance: summary });
+      } catch (e) {
+          return summary.language === 'bangla' ? "আপনার আর্থিক লক্ষ্য অর্জনে এগিয়ে যান!" : "Keep pushing towards your financial goals!";
+      }
   }
 };
