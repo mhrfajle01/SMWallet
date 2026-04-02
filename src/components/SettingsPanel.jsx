@@ -5,13 +5,14 @@ import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAI } from '../context/AIContext';
 import { useQuests } from '../context/QuestContext';
-import { FaUser, FaWallet, FaMoon, FaSun, FaShieldAlt, FaBell, FaCheckCircle, FaGlobe, FaRobot, FaCoins, FaVolumeUp, FaSync, FaSave, FaMobileAlt } from 'react-icons/fa';
+import { FaUser, FaWallet, FaMoon, FaSun, FaShieldAlt, FaBell, FaCheckCircle, FaGlobe, FaRobot, FaCoins, FaVolumeUp, FaSync, FaSave, FaMobileAlt, FaExclamationTriangle, FaTrashAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { requestNotificationPermission, sendNotification } from '../utils/notifications';
+import ConfirmModal from './ConfirmModal';
 
 const SettingsPanel = () => {
   const { user, userData, updateUserSettings } = useAuth();
-  const { wallets } = useApp();
+  const { wallets, factoryReset } = useApp();
   const { isDarkMode, toggleTheme } = useTheme();
   const { aiSettings, updateAISettings } = useAI();
   const { forceRegenerate, loading: questsLoading } = useQuests();
@@ -19,6 +20,8 @@ const SettingsPanel = () => {
   const [editName, setEditName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSavingSuccess] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -30,6 +33,20 @@ const SettingsPanel = () => {
         console.error(e);
     } finally {
         setIsSaving(false);
+    }
+  };
+
+  const handleFactoryReset = async () => {
+    setIsResetting(true);
+    try {
+        await factoryReset();
+        alert("System Reset Successful. All data has been cleared.");
+        window.location.reload();
+    } catch (e) {
+        console.error(e);
+        alert("Failed to reset system. Please try again.");
+    } finally {
+        setIsResetting(false);
     }
   };
 
@@ -214,6 +231,29 @@ const SettingsPanel = () => {
                 </Row>
               </Card.Body>
             </Card>
+
+            {/* Danger Zone */}
+            <Card className="dash-card border-0 shadow-sm mb-4" style={{ borderRadius: '1.5rem', background: 'var(--card-bg)', borderColor: '#fee2e2 !important' }}>
+              <Card.Body className="p-4">
+                <h5 className="fw-bold mb-4 d-flex align-items-center gap-2 text-danger">
+                  <FaExclamationTriangle /> Danger Zone
+                </h5>
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div>
+                        <h6 className="fw-bold mb-1">Factory Reset System</h6>
+                        <p className="small text-muted mb-0">Permanently delete all wallets, transactions, habits, goals, and history. This cannot be undone.</p>
+                    </div>
+                    <Button 
+                        variant="outline-danger" 
+                        className="rounded-pill px-4 fw-bold flex-shrink-0"
+                        onClick={() => setShowResetConfirm(true)}
+                        disabled={isResetting}
+                    >
+                        {isResetting ? <Spinner animation="border" size="sm" /> : <><FaTrashAlt className="me-2" /> Reset All Data</>}
+                    </Button>
+                </div>
+              </Card.Body>
+            </Card>
           </Col>
 
           <Col lg={4}>
@@ -265,6 +305,16 @@ const SettingsPanel = () => {
           </Col>
         </Row>
       </motion.div>
+
+      <ConfirmModal 
+        show={showResetConfirm}
+        onHide={() => setShowResetConfirm(false)}
+        onConfirm={handleFactoryReset}
+        title="Factory Reset System?"
+        message="This will permanently delete ALL your financial data, habits, goals, and achievements. You will start over from Level 1. This action is irreversible."
+        confirmText="Yes, Reset Everything"
+      />
+
       <style>{`
         .dash-card { background: var(--card-bg); transition: all 0.3s ease; border: 1px solid var(--border-color) !important; }
         .text-purple { color: #a78bfa; }
@@ -291,3 +341,4 @@ const SettingsPanel = () => {
 };
 
 export default SettingsPanel;
+

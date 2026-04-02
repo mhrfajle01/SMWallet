@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useMemo } from '
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { playSound } from '../utils/soundEffects';
-import { getLocalISO } from '../utils/dateUtils';
+import { getLocalISO, formatTimestampLocal } from '../utils/dateUtils';
 import { 
   collection, 
   onSnapshot, 
@@ -18,7 +18,8 @@ import {
   getDocs,
   increment,
   orderBy,
-  limit
+  limit,
+  arrayUnion
 } from 'firebase/firestore';
 
 export const AppContext = createContext();
@@ -38,6 +39,7 @@ export const AppProvider = ({ children }) => {
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [trashItems, setTrashItems] = useState([]);
+  const [sessionSeconds, setSessionSeconds] = useState(0);
   const [avatarState, setAvatarState] = useState({
     level: 1,
     xp: 0,
@@ -45,10 +47,11 @@ export const AppProvider = ({ children }) => {
     xp_consistency: 0,
     xp_wealth: 0,
     health: 100,
-    streak: 1,
+    streak: 0,
     multiplier: 1,
     shadowXP: 0,
     shadowLevel: 0,
+    checkInHistory: [],
     lastUpdate: null,
     lastActivity: null,
     lastPassiveGrant: null,
@@ -110,8 +113,8 @@ export const AppProvider = ({ children }) => {
 
     // Diminishing Returns / Anti-Spam Logic
     const daily = avatarState.dailyStats || { lastReset: null, counts: {} };
-    const today = new Date().toISOString().split('T')[0];
-    const lastReset = daily.lastReset?.toDate ? daily.lastReset.toDate().toISOString().split('T')[0] : (daily.lastReset ? new Date(daily.lastReset).toISOString().split('T')[0] : null);
+    const today = getLocalISO();
+    const lastReset = formatTimestampLocal(daily.lastReset);
     
     let updatedCounts = { ...(daily.counts || {}) };
     
@@ -159,55 +162,108 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('prev_level', avatarState.level);
   }, [avatarState.level]);
 
-  // Daily Login Bonus
+  // --- Daily Check-in & Session Logic (Duolingo Style) ---
+  
+  const hasTransactionToday = useMemo(() => {
+    const today = getLocalISO();
+    const madeMeal = meals.some(m => m.date === today);
+    const madePurchase = purchases.some(p => p.date === today);
+    const madeIncome = incomes.some(i => i.date === today);
+    return madeMeal || madePurchase || madeIncome;
+  }, [meals, purchases, incomes]);
+
   useEffect(() => {
     if (!user || !avatarState?.id) return;
-    const today = new Date().toISOString().split('T')[0];
-    const lastLogin = localStorage.getItem(`last_login_${user.uid}`);
     
-    if (lastLogin !== today) {
-        earnXP(20, 'consistency', 'login');
-        localStorage.setItem(`last_login_${user.uid}`, today);
+    const today = getLocalISO();
+    const hasCheckedIn = avatarState.checkInHistory?.includes(today);
+    
+    if (hasCheckedIn) {
+        setSessionSeconds(120);
+        return;
     }
-  }, [user, avatarState?.id]);
 
-  // Streak & Passive XP Logic
+    const key = `session_sec_${user.uid}_${today}`;
+    let seconds = parseInt(localStorage.getItem(key) || '0');
+    setSessionSeconds(Math.min(seconds, 120));
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        seconds++;
+        if (seconds <= 120) {
+            localStorage.setItem(key, seconds);
+            setSessionSeconds(seconds);
+            // Auto check-in if conditions are met
+            if (seconds === 120 && hasTransactionToday) {
+                completeCheckIn();
+            }
+        } else {
+            clearInterval(interval);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user, avatarState?.id, avatarState.checkInHistory, hasTransactionToday]);
+
+  // Manual trigger check-in if transaction made after 2 mins spent
   useEffect(() => {
-    if (!user || !avatarState?.id || !avatarState?.lastActivity) return;
-    
-    const last = avatarState.lastActivity?.toDate ? avatarState.lastActivity.toDate() : new Date(avatarState.lastActivity);
-    const now = new Date();
-    const diffDays = Math.floor((now - last) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) {
-       // Increment streak if it's the next day
-       const newStreak = (avatarState.streak || 0) + 1;
-       updateDoc(doc(db, 'avatar', avatarState.id), {
-         streak: increment(1),
-         multiplier: Math.min(2, 1 + (newStreak * 0.1)), // 0.1 per day, max 2.0x
-         lastActivity: serverTimestamp()
-       });
-    } else if (diffDays > 1) {
-       // Reset streak if more than a day passed
-       updateDoc(doc(db, 'avatar', avatarState.id), {
-         streak: 1,
-         multiplier: 1.1,
-         lastActivity: serverTimestamp()
-       });
+    if (sessionSeconds >= 120 && hasTransactionToday) {
+        const today = getLocalISO();
+        if (!avatarState.checkInHistory?.includes(today)) {
+            completeCheckIn();
+        }
     }
+  }, [hasTransactionToday, sessionSeconds, avatarState.checkInHistory]);
 
-    // Passive XP for discipline (Under Budget yesterday)
+  const completeCheckIn = async () => {
+    if (!user || !avatarState?.id) return;
+    const today = getLocalISO();
+    if (avatarState.checkInHistory?.includes(today)) return;
+
+    try {
+        const lastCheckIn = avatarState.lastCheckInDate; // YYYY-MM-DD
+        let newStreak = avatarState.streak || 0;
+        
+        if (lastCheckIn) {
+            const lastDate = new Date(lastCheckIn + 'T00:00:00');
+            const todayDate = new Date(today + 'T00:00:00');
+            const diffMs = todayDate.getTime() - lastDate.getTime();
+            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) newStreak += 1;
+            else if (diffDays > 1) newStreak = 1;
+            else if (diffDays === 0) return; // Already checked in
+        } else {
+            newStreak = 1;
+        }
+
+        await updateDoc(doc(db, 'avatar', avatarState.id), {
+            checkInHistory: arrayUnion(today),
+            lastCheckInDate: today,
+            streak: newStreak,
+            multiplier: Math.min(2, 1 + (newStreak * 0.1)),
+            xp_consistency: increment(50),
+            lastActivity: serverTimestamp()
+        });
+        playSound('success');
+    } catch (e) { console.error("Check-in error:", e); }
+  };
+
+  // Passive XP Logic (Discipline)
+  useEffect(() => {
+    if (!user || !avatarState?.id) return;
+    const now = new Date();
     const lastGrant = avatarState.lastPassiveGrant?.toDate ? avatarState.lastPassiveGrant.toDate() : (avatarState.lastPassiveGrant ? new Date(avatarState.lastPassiveGrant) : null);
+    
     if (!lastGrant || Math.floor((now - lastGrant) / (1000 * 60 * 60 * 24)) >= 1) {
         const totalBudget = (budgets || []).reduce((a, c) => a + (Number(c.limit) || 0), 0);
         if (totalBudget > 0 && globalStats.totalSpent <= totalBudget) {
             earnXP(50, 'frugality', 'discipline');
-            updateDoc(doc(db, 'avatar', avatarState.id), {
-                lastPassiveGrant: serverTimestamp()
-            });
+            updateDoc(doc(db, 'avatar', avatarState.id), { lastPassiveGrant: serverTimestamp() });
         }
     }
-  }, [avatarState.id, avatarState.lastActivity, user]);
+  }, [avatarState.id, user, budgets, globalStats.totalSpent]);
 
   // Initialization & Categories
   useEffect(() => {
@@ -288,6 +344,7 @@ export const AppProvider = ({ children }) => {
           nextLevelXp, 
           shadowXP,
           shadowLevel,
+          checkInHistory: data.checkInHistory || [],
           id: docSnap.id 
         });
       } else if (!initializing) {
@@ -303,10 +360,12 @@ export const AppProvider = ({ children }) => {
           xp_consistency: 0, 
           xp_wealth: 0, 
           health: 100, 
-          streak: 1, 
+          streak: 0, 
           multiplier: 1, 
           shadowXP: 0,
           shadowLevel: 0,
+          checkInHistory: [],
+          lastCheckInDate: null,
           lastActivity: serverTimestamp(), 
           createdAt: serverTimestamp(),
           dailyStats: { lastReset: serverTimestamp(), counts: {} }
@@ -325,14 +384,12 @@ export const AppProvider = ({ children }) => {
           }
         }).catch(() => setDoc(avatarRef, initial));
       }
+      setLoading(false); // Set loading to false immediately after snapshot
     });
-
-    const timeout = setTimeout(() => setLoading(false), 1500);
 
     return () => { 
         unsubCats(); unsubWallets(); unsubBudgets(); unsubIncomes(); unsubTransfers(); 
         unsubGoals(); unsubMeals(); unsubPurchases(); unsubDeposits(); unsubTrash(); unsubAvatar();
-        clearTimeout(timeout);
     };
   }, [user]);
 
@@ -396,7 +453,7 @@ export const AppProvider = ({ children }) => {
         // Consistency Perk (Unstoppable) - Reduce health loss
         if ((avatarState.xp_consistency || 0) >= 1500) penaltyMultiplier = 1;
         
-        // --- NEW: EMERGENCY SHIELD LOGIC ---
+        // --- EMERGENCY SHIELD LOGIC ---
         if (isShieldActive) penaltyMultiplier *= 0.5; // Halve the penalty if shield is active
         
         newHealth = Math.max(10, 100 - (overPercent * penaltyMultiplier));
@@ -414,7 +471,7 @@ export const AppProvider = ({ children }) => {
             lastUpdate: serverTimestamp()
         });
     }
-  }, [budgets, globalStats.totalSpent, avatarState?.id, avatarState?.health, user]);
+  }, [budgets, globalStats.totalSpent, avatarState?.id, avatarState?.health, user, isShieldActive]);
 
   const calculatedWallets = useMemo(() => {
     const walletExpenses = {};
@@ -605,6 +662,74 @@ export const AppProvider = ({ children }) => {
 
   const deleteBudget = async (id) => await deleteDoc(doc(db, 'budgets', id));
 
+  const factoryReset = async () => {
+    if (!user) return;
+    try {
+        const collectionsToClear = [
+            'categories', 'wallets', 'budgets', 'incomes', 'transfers', 
+            'goals', 'meals', 'purchases', 'goal_deposits', 'trash',
+            'habits', 'habitLogs', 'todos', 'notes', 'shoppingList', 
+            'trips', 'planner_water', 'daily_quests', 'weekly_quests', 
+            'user_achievements'
+        ];
+
+        for (const collName of collectionsToClear) {
+            const q = query(collection(db, collName), where('uid', '==', user.uid));
+            const snapshot = await getDocs(q);
+            for (const docSnap of snapshot.docs) {
+                await deleteDoc(doc(db, collName, docSnap.id));
+            }
+        }
+
+        // Reset Avatar
+        const avatarRef = doc(db, 'avatar', user.uid);
+        await setDoc(avatarRef, { 
+            uid: user.uid, 
+            userId: user.uid, 
+            level: 1, 
+            xp: 0, 
+            xp_frugality: 0, 
+            xp_consistency: 0, 
+            xp_wealth: 0, 
+            health: 100, 
+            streak: 0, 
+            multiplier: 1, 
+            shadowXP: 0,
+            shadowLevel: 0,
+            checkInHistory: [],
+            lastCheckInDate: null,
+            lastActivity: serverTimestamp(), 
+            createdAt: serverTimestamp(),
+            dailyStats: { lastReset: serverTimestamp(), counts: {} }
+        });
+
+        // Reset AI Settings
+        await setDoc(doc(db, 'settings_ai', user.uid), {
+            preferredModel: 'builtIn',
+            geminiKey: '',
+            deepseekKey: '',
+            language: 'english',
+            currency: 'BDT',
+            soundsEnabled: true,
+            hapticEnabled: true,
+            notifEnabled: false
+        });
+
+        // Reset User Core Settings
+        await setDoc(doc(db, 'users', user.uid), { 
+            email: user.email, 
+            pinnedWalletId: '',
+            lastReset: serverTimestamp() 
+        });
+
+        playSound('pop');
+        return true;
+    } catch (e) {
+        console.error("Factory Reset Error:", e);
+        throw e;
+    }
+  };
+
   const getSmartRecents = () => {
     const freq = {};
     const all = [
@@ -625,7 +750,7 @@ export const AppProvider = ({ children }) => {
       meals, purchases, incomes, transfers, goals, goalDeposits, budgets, categories, globalStats, trashItems, avatarState, loading, isShieldActive,
       addCategory, deleteCategory, addWallet, deleteWallet, addGoal, updateGoal, deleteGoal, depositToGoal, deleteGoalDeposit,
       addMeal, updateMeal, deleteMeal, addPurchase, updatePurchase, deletePurchase, updateBudget, deleteBudget, addIncome, updateIncome, deleteIncome, transferFunds, deleteTransfer, getSmartRecents,
-      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash, earnXP, increaseShadowXP
+      moveToTrash, restoreFromTrash, deletePermanently, emptyTrash, earnXP, increaseShadowXP, factoryReset, sessionSeconds, hasTransactionToday
     }}>
       {children}
     </AppContext.Provider>

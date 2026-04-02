@@ -8,13 +8,24 @@ import {
   FaHistory,
   FaPiggyBank,
   FaFileAlt,
-  FaMapMarkedAlt
+  FaMapMarkedAlt,
+  FaTrash
 } from 'react-icons/fa';
 
 const BottomNav = () => {
+  const location = useLocation();
+  
   return (
     <div className="bottom-nav shadow-lg border-top" style={{ overflowX: 'auto', justifyContent: 'space-around', background: 'var(--nav-bg)' }}>
       
+      <NavLink 
+        to="/dashboard"
+        className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
+      >
+        <FaChartPie className="nav-icon" />
+        <span>Hub</span>
+      </NavLink>
+
       <NavLink 
         to="/wallets"
         className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
@@ -48,11 +59,11 @@ const BottomNav = () => {
       </NavLink>
 
       <NavLink 
-        to="/reports"
+        to="/trash"
         className={({ isActive }) => `nav-item text-decoration-none ${isActive ? 'active' : ''}`}
       >
-        <FaFileAlt className="nav-icon" />
-        <span>Reports</span>
+        <FaTrash className="nav-icon" />
+        <span>Trash</span>
       </NavLink>
 
       <NavLink 
@@ -67,3 +78,4 @@ const BottomNav = () => {
 };
 
 export default BottomNav;
+

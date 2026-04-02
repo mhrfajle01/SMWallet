@@ -262,7 +262,7 @@ export const ProductivityProvider = ({ children, onEarnXP }) => {
   };
 
   const deleteNote = async (id) => {
-    const note = notes.find(n => n.id === note.id);
+    const note = notes.find(n => n.id === id);
     if (note) await moveToTrash('notes', id, note);
   };
 

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
 import { useProductivity } from '../context/ProductivityContext';
+import { getLocalISO } from '../utils/dateUtils';
 
 const AddTaskModal = ({ show, onHide }) => {
   const { addTodo } = useProductivity();
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalISO());
   const [category, setCategory] = useState('Work');
   const [priority, setPriority] = useState('Medium');
 

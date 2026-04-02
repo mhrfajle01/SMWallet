@@ -15,6 +15,7 @@ const Sidebar = ({ onAddTransaction }) => {
   const location = useLocation();
 
   const financeItems = [
+    { path: '/dashboard', icon: FaChartPie, label: 'Dashboard' },
     { path: '/wallets', icon: FaWallet, label: 'My Wallets' },
     { path: '/planner', icon: FaTasks, label: 'Daily Hub / Plan' },
     { path: '/history', icon: FaHistory, label: 'Transactions' },

@@ -1,3 +1,5 @@
+import { getLocalISO } from './dateUtils';
+
 const DEFAULT_HEADERS = {
   "Content-Type": "application/json",
   "HTTP-Referer": "https://mhrfajle01.github.io/SMWallet/", 
@@ -27,7 +29,7 @@ const requestBuiltInAI = (messages, context) => {
             if (amountMatch) {
                 const amount = parseFloat(amountMatch[0]);
                 const dateMatch = line.match(dateRegex);
-                const date = dateMatch ? dateMatch[0] : new Date().toISOString().split('T')[0];
+                const date = dateMatch ? dateMatch[0] : getLocalISO();
                 
                 // Clean up item name: remove amount and date
                 let item = line.replace(amountMatch[0], '').replace(date || '', '').replace(/spent|at|paid|for|bdt/gi, '').replace(/[":,{}[\]]/g, '').trim();
@@ -170,7 +172,7 @@ export const aiService = {
         return { 
             merchant: "Local Parse", 
             amount: parseFloat(rawText.match(/\d+\.?\d*/)?.[0] || 0), 
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalISO(),
             category: "Other" 
         };
     }

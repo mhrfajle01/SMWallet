@@ -12,6 +12,7 @@ import FinancialCalendar from './FinancialCalendar';
 import TransactionHistory from './TransactionHistory';
 import { db } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getLocalISO } from '../utils/dateUtils';
 import '../Dashboard.css';
 
 // Hook to handle PWA Installation
@@ -97,7 +98,7 @@ const DashboardView = () => {
   // Upcoming Logistics Feed
   const upcomingFeed = useMemo(() => {
     const feed = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalISO();
 
     (todos || []).filter(t => !t.completed && t.dueDate === today).forEach(t => feed.push({ type: 'task', label: t.title, icon: <FaTasks className="text-info"/> }));
     

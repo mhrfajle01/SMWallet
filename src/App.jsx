@@ -23,6 +23,7 @@ import SettingsPanel from './components/SettingsPanel';
 import DashboardView from './components/DashboardView';
 import UnifiedPlanner from './components/UnifiedPlanner';
 import TrashView from './components/TrashView';
+import UnifiedDashboard from './components/UnifiedDashboard';
 
 // Productivity Components
 import HabitTracker from './components/productivity/HabitTracker';
@@ -164,14 +165,6 @@ function AppLayout() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="vh-100 d-flex justify-content-center align-items-center" style={{ background: 'var(--bg-color)' }}>
-        <PageLoader />
-      </div>
-    );
-  }
-
   return (
     <div className="app-container">
       {/* Offline Status Bar */}
@@ -232,6 +225,7 @@ function AppLayout() {
                 <ErrorBoundary>
                   <Routes>
                     {/* Finance Routes */}
+                    <Route path="/dashboard" element={<UnifiedDashboard />} />
                     <Route path="/wallets" element={<WalletPanel onOpenCreateModal={() => setShowCreateWalletModal(true)} />} />
                     <Route path="/goals" element={<GoalsPanel onOpenCreateModal={() => setShowAddGoalModal(true)} />} />
                     <Route path="/budget" element={<BudgetPlanner />} />
@@ -247,7 +241,7 @@ function AppLayout() {
                     <Route path="/productivity/notes" element={<NotesApp />} />
                     <Route path="/productivity/data" element={<DataTransfer />} />
                     
-                    <Route path="*" element={<Navigate to="/wallets" replace />} />
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </ErrorBoundary>
               </motion.div>

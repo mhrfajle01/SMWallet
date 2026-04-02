@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, ProgressBar, Badge, Spinner, Row, Col, Modal, Button } from 'react-bootstrap';
-import { FaBolt, FaHeart, FaCommentDots, FaShieldAlt, FaChartLine, FaSeedling, FaGem, FaFire, FaSkull, FaTrophy, FaLock, FaInfoCircle, FaStar } from 'react-icons/fa';
+import { FaBolt, FaHeart, FaCommentDots, FaShieldAlt, FaChartLine, FaSeedling, FaGem, FaFire, FaSkull, FaTrophy, FaLock, FaStar } from 'react-icons/fa';
 import { useApp } from '../context/AppContext';
 import { useProductivity } from '../context/ProductivityContext';
 import { useQuests } from '../context/QuestContext';
@@ -8,8 +8,9 @@ import { useAchievements } from '../context/AchievementContext';
 import { useAI } from '../context/AIContext';
 import { aiService } from '../utils/aiService';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getLocalISO } from '../utils/dateUtils';
 
-const FinancialAvatar = () => {
+const FinancialAvatar = ({ minimal = false }) => {
   const { avatarState, globalStats, budgets, wallets, meals, purchases, earnXP, isShieldActive } = useApp();
   const { todos, habitLogs } = useProductivity();
   const { dailyQuests, weeklyQuest, claimQuestReward, claimWeeklyReward, loading: loadingQuests } = useQuests();
@@ -92,7 +93,7 @@ const FinancialAvatar = () => {
   ], [avatarState]);
 
   const statsSummary = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalISO();
     const doneTasks = todos.filter(t => t.completed).length;
     const doneHabits = habitLogs.filter(l => l.date === today && l.status).length;
     
@@ -174,14 +175,14 @@ const FinancialAvatar = () => {
     return '#ef4444'; // Red
   };
 
-  const renderAvatarSVG = () => {
+  const renderAvatarSVG = (size = 80) => {
     const lvl = statsSummary.level;
     const color = getMoodColor();
     const streak = avatarState.streak || 1;
     const shadowLvl = avatarState.shadowLevel || 0;
     
     return (
-        <svg width="80" height="80" viewBox="0 0 100 100">
+        <svg width={size} height={size} viewBox="0 0 100 100">
             {/* Shadow Rival Silhouette */}
             {shadowLvl > 0 && (
                 <motion.path 
@@ -275,11 +276,42 @@ const FinancialAvatar = () => {
     );
   };
 
+  if (minimal) {
+    return (
+        <div className="avatar-minimal text-center py-2">
+            <div className="position-relative d-inline-block mb-2">
+                <motion.div 
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="rounded-circle d-flex align-items-center justify-content-center mx-auto shadow-sm"
+                    style={{ 
+                        width: '90px', height: '100px', 
+                        background: `radial-gradient(circle, ${getMoodColor()}22 0%, ${getMoodColor()}00 70%)`,
+                        border: `2px solid ${getMoodColor()}44`
+                    }}
+                >
+                    {renderAvatarSVG(60)}
+                </motion.div>
+                <Badge bg="primary" className="position-absolute bottom-0 end-0 rounded-pill px-2 py-1 x-small shadow border border-white">
+                    {t.level} {statsSummary.level}
+                </Badge>
+            </div>
+            <div className="px-3">
+                <div className="d-flex justify-content-between align-items-center x-small fw-bold mb-1">
+                    <span style={{ color: getMoodColor() }}><FaHeart size={10} className="me-1" /> {statsSummary.health}%</span>
+                    <span className="text-muted">XP: {avatarState.xpInLevel}</span>
+                </div>
+                <ProgressBar now={statsSummary.health} variant={statsSummary.health > 50 ? 'success' : 'warning'} style={{ height: '4px' }} className="rounded-pill" />
+            </div>
+        </div>
+    );
+  }
+
   return (
-    <Card className="border-0 shadow-sm overflow-hidden mb-4" style={{ background: 'var(--card-bg)' }}>
-      <Card.Body className="p-4">
-        <Row className="align-items-start g-4">
-          <Col xs={12} md={4} className="text-center border-md-end border-color">
+    <Card className="border-0 shadow-sm overflow-hidden mb-4" style={{ borderRadius: '1.5rem', background: 'var(--card-bg)' }}>
+      <Card.Body className="p-3 p-md-4">
+        <Row className="align-items-start g-3 g-md-4">
+          <Col xs={12} lg={4} className="text-center border-lg-end border-color pb-3 pb-lg-0">
             {/* Avatar Visual */}
             <div className="position-relative d-inline-block mb-3">
                 <motion.div 
@@ -299,9 +331,9 @@ const FinancialAvatar = () => {
                     }}
                     onClick={() => setShowPerks(true)}
                 >
-                    {renderAvatarSVG()}
+                    {renderAvatarSVG(80)}
                 </motion.div>
-                <Badge bg="primary" className="position-absolute bottom-0 end-0 rounded-pill px-3 py-2 shadow border border-2 border-white">
+                <Badge bg="primary" className="position-absolute bottom-0 end-0 rounded-pill px-2 py-1 small shadow border border-2 border-white">
                     {t.level} {statsSummary.level}
                 </Badge>
                 
@@ -309,10 +341,10 @@ const FinancialAvatar = () => {
                     <motion.div 
                         initial={{ scale: 0 }} animate={{ scale: 1 }}
                         className="position-absolute top-0 end-0 badge rounded-pill bg-info text-white px-2 py-1 shadow d-flex align-items-center gap-1 border border-2 border-white"
-                        style={{ transform: 'translate(20%, -20%)' }}
+                        style={{ transform: 'translate(10%, -10%)' }}
                         title="Emergency Shield Active: -50% Damage taken"
                     >
-                        <FaShieldAlt /> SHIELD
+                        <FaShieldAlt size={10} /> <span style={{fontSize: '0.65rem'}}>SHIELD</span>
                     </motion.div>
                 )}
                 
@@ -320,17 +352,18 @@ const FinancialAvatar = () => {
                     <motion.div 
                         initial={{ scale: 0 }} animate={{ scale: 1 }}
                         className="position-absolute top-0 start-0 badge rounded-pill bg-warning text-dark px-2 py-1 shadow d-flex align-items-center gap-1"
+                        style={{ transform: 'translate(-10%, -10%)' }}
                     >
-                        <FaFire /> {avatarState.streak} {t.streak}
+                        <FaFire size={10} /> <span style={{fontSize: '0.65rem'}}>{avatarState.streak} {t.streak}</span>
                     </motion.div>
                 )}
             </div>
 
-            <div className="mt-2">
+            <div className="mt-1">
                 <div className="d-flex align-items-center justify-content-center gap-2 small fw-bold mb-1" style={{ color: getMoodColor() }}>
-                    <FaHeart /> {t.health} {statsSummary.health}%
+                    <FaHeart size={12} /> {t.health} {statsSummary.health}%
                 </div>
-                <ProgressBar now={statsSummary.health} variant={statsSummary.health > 50 ? 'success' : statsSummary.health > 25 ? 'warning' : 'danger'} style={{ height: '6px' }} />
+                <ProgressBar now={statsSummary.health} variant={statsSummary.health > 50 ? 'success' : statsSummary.health > 25 ? 'warning' : 'danger'} style={{ height: '6px' }} className="rounded-pill" />
                 <div className="x-small text-muted mt-2 fw-bold text-uppercase tracking-wider">
                     {t.multiplier}: {(avatarState.multiplier || 1).toFixed(2)}x
                 </div>
@@ -340,7 +373,7 @@ const FinancialAvatar = () => {
             </div>
 
             {/* Achievement Badges Mini Section */}
-            <div className="mt-4 pt-3 border-top border-color">
+            <div className="mt-3 pt-3 border-top border-color d-none d-sm-block">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                     <h6 className="x-small fw-bold text-muted text-uppercase mb-0 tracking-wider">{t.achievements}</h6>
                     <Button variant="link" size="sm" className="p-0 x-small text-decoration-none" onClick={() => setShowAchievements(true)}>{t.viewAll}</Button>
@@ -352,15 +385,15 @@ const FinancialAvatar = () => {
                                 key={a.id} 
                                 initial={{ scale: 0 }} animate={{ scale: 1 }}
                                 title={a.title}
-                                className="badge rounded-circle bg-light border p-2"
-                                style={{ fontSize: '1.2rem', cursor: 'pointer' }}
+                                className="badge rounded-circle bg-light border p-2 text-dark"
+                                style={{ fontSize: '1rem', cursor: 'pointer' }}
                                 onClick={() => setShowAchievements(true)}
                             >
                                 {a.icon}
                             </motion.span>
                         ))
                     ) : (
-                        <div className="x-small text-muted py-2">{t.noAchievements}</div>
+                        <div className="x-small text-muted py-1">{t.noAchievements}</div>
                     )}
                 </div>
             </div>
@@ -441,41 +474,41 @@ const FinancialAvatar = () => {
             </Modal>
           </Col>
 
-          <Col xs={12} md={8}>
-            <div className="dialogue-box p-3 rounded-4 mb-3 position-relative" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)' }}>
+          <Col xs={12} lg={8}>
+            <div className="dialogue-box p-3 rounded-4 mb-3 position-relative shadow-sm" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)' }}>
                 <FaCommentDots className="position-absolute top-0 start-0 m-2 opacity-25" />
                 {isTyping ? (
                     <div className="py-1"><Spinner animation="grow" size="sm" variant="primary" /></div>
                 ) : (
-                    <p className="mb-0 small fw-medium" style={{ color: 'var(--text-primary)' }}>{dialogue}</p>
+                    <p className="mb-0 small fw-medium ps-2" style={{ color: 'var(--text-primary)', lineHeight: '1.4' }}>{dialogue}</p>
                 )}
             </div>
 
             {/* Skill Trees */}
-            <h6 className="x-small fw-bold text-muted text-uppercase mb-3 tracking-wider d-flex align-items-center gap-2">
+            <h6 className="x-small fw-bold text-muted text-uppercase mb-2 tracking-wider d-flex align-items-center gap-2">
                 <FaChartLine /> {t.skillMastery}
             </h6>
-            <Row className="g-3 mb-4">
+            <Row className="g-2 g-md-3 mb-3 mb-md-4">
                 <Col xs={4}>
-                    <div className="skill-card p-2 rounded-3 text-center" style={{ background: 'rgba(59, 130, 246, 0.05)', cursor: 'pointer' }} onClick={() => setShowPerks(true)}>
+                    <div className="skill-card p-2 rounded-3 text-center h-100" style={{ background: 'rgba(59, 130, 246, 0.05)', cursor: 'pointer', border: '1px solid rgba(59, 130, 246, 0.1)' }} onClick={() => setShowPerks(true)}>
                         <FaSeedling className="text-primary mb-1" />
-                        <div className="x-small fw-bold text-muted">{t.frugality}</div>
+                        <div className="x-small fw-bold text-muted text-truncate">{t.frugality}</div>
                         <div className="small fw-bold">{avatarState.xp_frugality || 0}</div>
                         <ProgressBar now={(avatarState.xp_frugality || 0) % 100} style={{ height: '3px' }} className="mt-1" />
                     </div>
                 </Col>
                 <Col xs={4}>
-                    <div className="skill-card p-2 rounded-3 text-center" style={{ background: 'rgba(16, 185, 129, 0.05)', cursor: 'pointer' }} onClick={() => setShowPerks(true)}>
+                    <div className="skill-card p-2 rounded-3 text-center h-100" style={{ background: 'rgba(16, 185, 129, 0.05)', cursor: 'pointer', border: '1px solid rgba(16, 185, 129, 0.1)' }} onClick={() => setShowPerks(true)}>
                         <FaGem className="text-success mb-1" />
-                        <div className="x-small fw-bold text-muted">{t.wealth}</div>
+                        <div className="x-small fw-bold text-muted text-truncate">{t.wealth}</div>
                         <div className="small fw-bold">{avatarState.xp_wealth || 0}</div>
                         <ProgressBar now={(avatarState.xp_wealth || 0) % 100} style={{ height: '3px' }} className="mt-1" variant="success" />
                     </div>
                 </Col>
                 <Col xs={4}>
-                    <div className="skill-card p-2 rounded-3 text-center" style={{ background: 'rgba(139, 92, 246, 0.05)', cursor: 'pointer' }} onClick={() => setShowPerks(true)}>
+                    <div className="skill-card p-2 rounded-3 text-center h-100" style={{ background: 'rgba(139, 92, 246, 0.05)', cursor: 'pointer', border: '1px solid rgba(139, 92, 246, 0.1)' }} onClick={() => setShowPerks(true)}>
                         <FaShieldAlt className="text-purple mb-1" />
-                        <div className="x-small fw-bold text-muted">{t.consistency}</div>
+                        <div className="x-small fw-bold text-muted text-truncate">{t.consistency}</div>
                         <div className="small fw-bold">{avatarState.xp_consistency || 0}</div>
                         <ProgressBar now={(avatarState.xp_consistency || 0) % 100} style={{ height: '3px' }} className="mt-1" variant="info" />
                     </div>
@@ -483,14 +516,14 @@ const FinancialAvatar = () => {
             </Row>
 
             {/* Quests Section */}
-            <div className="quests-section mb-4">
-                <h6 className="x-small fw-bold text-muted text-uppercase mb-3 tracking-wider d-flex align-items-center gap-2">
+            <div className="quests-section mb-3 mb-md-4">
+                <h6 className="x-small fw-bold text-muted text-uppercase mb-2 tracking-wider d-flex align-items-center gap-2">
                     <FaBolt className="text-warning" /> {t.activeQuests}
                 </h6>
                 
                 {/* Weekly Quest */}
                 {weeklyQuest && (
-                    <div className="p-3 rounded-4 border border-primary border-opacity-25 mb-3" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
+                    <div className="p-3 rounded-4 border border-primary border-opacity-25 mb-2" style={{ background: 'rgba(59, 130, 246, 0.05)' }}>
                         <div className="d-flex justify-content-between align-items-center mb-2">
                             <Badge bg="primary" className="x-small px-2 py-1">{t.weeklyMega}</Badge>
                             {weeklyQuest.completed && !weeklyQuest.claimed && (
@@ -519,28 +552,30 @@ const FinancialAvatar = () => {
                 ) : dailyQuests && (
                     <div className="d-flex flex-column gap-2">
                         {dailyQuests.tasks.map(task => (
-                            <div key={task.id} className="p-2 rounded-3 border-0" style={{ background: 'var(--bg-color)' }}>
-                                <div className="d-flex justify-content-between align-items-center mb-1">
-                                    <div className="d-flex flex-column">
-                                        <span className="small fw-bold" style={{ color: 'var(--text-primary)' }}>{task.title}</span>
-                                        <span className="x-small text-muted">{task.description}</span>
+                            <div key={task.id} className="p-2 px-3 rounded-4 border" style={{ background: 'var(--bg-color)', borderColor: 'var(--border-color)' }}>
+                                <div className="d-flex justify-content-between align-items-center mb-1 gap-2">
+                                    <div className="d-flex flex-column overflow-hidden">
+                                        <span className="small fw-bold text-truncate" style={{ color: 'var(--text-primary)' }}>{task.title}</span>
+                                        <span className="x-small text-muted text-truncate">{task.description}</span>
                                     </div>
-                                    {task.completed && !task.rewardClaimed ? (
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={() => claimQuestReward(task.id)}
-                                            className="btn btn-warning btn-sm py-0 px-2 x-small fw-bold rounded-pill"
-                                        >
-                                            {t.claimXp} {task.xp} XP
-                                        </motion.button>
-                                    ) : task.rewardClaimed ? (
-                                        <Badge bg="success" className="rounded-pill px-2 py-1 x-small">{t.done} +{task.xp}</Badge>
-                                    ) : (
-                                        <span className="x-small fw-bold text-primary">{Math.round(task.progress * 100)}%</span>
-                                    )}
+                                    <div className="flex-shrink-0">
+                                        {task.completed && !task.rewardClaimed ? (
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => claimQuestReward(task.id)}
+                                                className="btn btn-warning btn-sm py-0 px-2 x-small fw-bold rounded-pill shadow-sm"
+                                            >
+                                                {t.claimXp} {task.xp} XP
+                                            </motion.button>
+                                        ) : task.rewardClaimed ? (
+                                            <Badge bg="success" className="rounded-pill px-2 py-1 x-small">{t.done} +{task.xp}</Badge>
+                                        ) : (
+                                            <span className="x-small fw-bold text-primary">{Math.round(task.progress * 100)}%</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <ProgressBar now={task.progress * 100} style={{ height: '4px' }} variant={task.completed ? 'success' : 'primary'} />
+                                <ProgressBar now={task.progress * 100} style={{ height: '4px' }} variant={task.completed ? 'success' : 'primary'} className="rounded-pill" />
                             </div>
                         ))}
                     </div>
@@ -550,12 +585,12 @@ const FinancialAvatar = () => {
             {/* Active Bosses */}
             {activeBosses.length > 0 && (
                 <div className="boss-section">
-                    <h6 className="x-small fw-bold text-danger text-uppercase mb-3 tracking-wider d-flex align-items-center gap-2">
+                    <h6 className="x-small fw-bold text-danger text-uppercase mb-2 tracking-wider d-flex align-items-center gap-2">
                         <FaSkull /> {t.bosses}
                     </h6>
-                    <div className="d-flex flex-column gap-3">
+                    <div className="d-flex flex-column gap-2">
                         {activeBosses.map(boss => (
-                            <div key={boss.id} className="boss-card p-3 rounded-4 border border-danger border-opacity-25 position-relative overflow-hidden" style={{ background: 'rgba(239, 68, 68, 0.05)' }}>
+                            <div key={boss.id} className="boss-card p-3 rounded-4 border border-danger border-opacity-25 position-relative overflow-hidden shadow-sm" style={{ background: 'rgba(239, 68, 68, 0.03)' }}>
                                 <AnimatePresence>
                                     {attackTarget === boss.id && (
                                         <motion.div 
@@ -568,24 +603,24 @@ const FinancialAvatar = () => {
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <div className="d-flex align-items-center gap-2 fw-bold small">
+                                <div className="d-flex justify-content-between align-items-center mb-2 gap-2">
+                                    <div className="d-flex align-items-center gap-2 fw-bold small text-truncate">
                                         {boss.icon} {boss.name}
                                     </div>
-                                    <div className="d-flex align-items-center gap-2">
+                                    <div className="d-flex align-items-center gap-2 flex-shrink-0">
                                         <motion.button
                                             whileHover={{ scale: 1.1 }}
                                             whileTap={{ scale: 0.9 }}
                                             onClick={() => handleAttack(boss.id)}
-                                            className="btn btn-outline-danger btn-sm py-0 px-2 x-small fw-bold rounded-pill"
+                                            className="btn btn-danger btn-sm py-0 px-2 x-small fw-bold rounded-pill shadow-sm"
                                         >
                                             {t.attack}
                                         </motion.button>
                                         <Badge bg="danger" className="x-small">{t.bossLabel}</Badge>
                                     </div>
                                 </div>
-                                <ProgressBar now={boss.health} variant="danger" style={{ height: '8px' }} className="mb-2 shadow-sm" />
-                                <p className="x-small text-muted mb-0 fw-bold">{boss.attackMethod}</p>
+                                <ProgressBar now={boss.health} variant="danger" style={{ height: '8px' }} className="mb-2 shadow-sm rounded-pill" />
+                                <p className="x-small text-danger mb-0 fw-bold">{boss.attackMethod}</p>
                                 <p className="x-small text-muted mb-0 mt-1">{boss.description}</p>
                             </div>
                         ))}
@@ -595,15 +630,16 @@ const FinancialAvatar = () => {
             
             {/* Total XP Bar if no bosses */}
             {activeBosses.length === 0 && (
-                <div className="mt-4">
+                <div className="mt-3">
                     <div className="d-flex justify-content-between x-small text-muted mb-1 px-1">
-                        <span>{t.xpProgress}</span>
-                        <span>{Math.round(avatarState.xpInLevel || 0)}/{Math.round(avatarState.nextLevelXp || 100)} XP</span>
+                        <span className="fw-bold">{t.xpProgress}</span>
+                        <span className="fw-bold">{Math.round(avatarState.xpInLevel || 0)}/{Math.round(avatarState.nextLevelXp || 100)} XP</span>
                     </div>
                     <ProgressBar 
                         now={((avatarState.xpInLevel || 0) / (avatarState.nextLevelXp || 100)) * 100} 
                         style={{ height: '10px' }} 
                         className="rounded-pill shadow-sm" 
+                        variant="warning"
                     />
                 </div>
             )}
@@ -624,6 +660,7 @@ const FinancialAvatar = () => {
         }
         .achievement-item:hover, .skill-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         .avatar-container {
             background: var(--bg-surface);
@@ -642,13 +679,16 @@ const FinancialAvatar = () => {
         }
         .text-purple { color: #8b5cf6; }
         .boss-card { animation: pulse-border 2s infinite; }
+        .border-color { border-color: var(--border-color) !important; }
+        
         @keyframes pulse-border {
             0% { border-color: rgba(239, 68, 68, 0.25); }
             50% { border-color: rgba(239, 68, 68, 0.5); }
             100% { border-color: rgba(239, 68, 68, 0.25); }
         }
-        @media (min-width: 768px) {
+        @media (min-width: 992px) {
             .dialogue-box::before { display: block; }
+            .border-lg-end { border-right: 1px solid var(--border-color) !important; }
         }
       `}</style>
     </Card>

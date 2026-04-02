@@ -5,6 +5,7 @@ import { createWorker } from 'tesseract.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { aiService } from '../utils/aiService';
 import { useAI } from '../context/AIContext';
+import { getLocalISO } from '../utils/dateUtils';
 
 const ReceiptScanner = ({ onScanComplete, onCancel }) => {
   const { aiSettings } = useAI();
@@ -83,7 +84,7 @@ const ReceiptScanner = ({ onScanComplete, onCancel }) => {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
     let amount = 0;
     let merchant = '';
-    let date = new Date().toISOString().split('T')[0];
+    let date = getLocalISO();
 
     // 1. Merchant Detection (Look at top lines, skip common garbage text)
     const skipKeywords = ['welcome', 'receipt', 'invoice', 'order', 'tax', 'date', 'time', 'tel', 'phone', 'customer'];

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { useApp } from '../context/AppContext';
 import StatusModal from './StatusModal';
+import { getLocalISO } from '../utils/dateUtils';
 
 const QuickDepositModal = ({ show, onHide, wallet }) => {
   const { addIncome } = useApp();
@@ -16,7 +17,7 @@ const QuickDepositModal = ({ show, onHide, wallet }) => {
       walletId: wallet.id,
       amount,
       source: 'Quick Deposit',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalISO(),
       walletName: wallet.name
     });
 
